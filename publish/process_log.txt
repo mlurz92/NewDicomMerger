@@ -1,0 +1,24 @@
+    SpacingBetweenSlices: 2,0000 mm
+    SpacingBetweenSlices: 3,0000 mm
+    SpacingBetweenSlices: 3,0000 mm
+    SpacingBetweenSlices: 3,0000 mm
+    Größe: 512×512 × 97 Frames, 16 Bit, 1ch, CT
+    SOP-Klasse: Enhanced CT Image Storage
+✓ Richter_Werner-Hals WF ven_s 2.0 ax I41s-2026-07-02.dcm
+    Größe: 512×512 × 116 Frames, 16 Bit, 1ch, CT
+    SOP-Klasse: Enhanced CT Image Storage
+✓ Richter_Werner-Thorax 3.0 ax I80s-2026-07-02.dcm
+    Größe: 512×512 × 166 Frames, 16 Bit, 1ch, CT
+    SOP-Klasse: Enhanced CT Image Storage
+✓ Richter_Werner-Tho_Ob WF 3.0 ax I41s-2026-07-02.dcm
+    Größe: 512×512 × 166 Frames, 16 Bit, 1ch, CT
+    SOP-Klasse: Enhanced CT Image Storage
+✓ Richter_Werner-Tho_Ob KF 3.0 ax I80s-2026-07-02.dcm
+
+══════════════════════════════════════════════════════════════
+ ERSTELLE 7-ZIP ARCHIV (STUFE 9-ULTRA)
+══════════════════════════════════════════════════════════════
+Führe 7-Zip Kompression (Stufe 9-Ultra) aus für Richter_Werner.zip...
+✓ 7-Zip Ultra (Stufe 9) ZIP erfolgreich erstellt: Richter_Werner.zip
+Bereinige umgewandelte Dateien im Zielordner...
+✓ Zielordner bereinigt: Nur Richter_Werner.zip verbleibt im Zielordner.

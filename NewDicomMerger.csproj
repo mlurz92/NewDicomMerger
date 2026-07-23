@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RootNamespace>NewDicomMerger</RootNamespace>
+    <AssemblyName>NewDicomMerger</AssemblyName>
+    <ApplicationIcon>app_icon.ico</ApplicationIcon>
+    
+    <!-- Standalone Single-File Deployment Properties -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- ═══ Runtime/JIT tuning for interactive desktop workloads on modern (incl. hybrid
+         P-core/E-core) Intel CPUs — Windows schedules threads across cores itself, these
+         settings just make sure the .NET runtime doesn't get in its way. ═══ -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <GCRetainVM>true</GCRetainVM>
+    <!-- Tiered PGO: methods get re-JITted with profile-guided optimizations once hot —
+         benefits the repeated per-frame MPR render/window-level math without paying
+         full-optimization JIT cost for code that only runs once (startup, one-off dialogs). -->
+    <TieredPGO>true</TieredPGO>
+    <TieredCompilationQuickJitForLoops>true</TieredCompilationQuickJitForLoops>
+    <!-- ReadyToRun (already set above) + AutoreleasePool N/A on Windows; keep startup fast
+         via pre-JITted images rather than compiling everything from IL on first launch. -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="fo-dicom" Version="5.1.4" />
+    <PackageReference Include="fo-dicom.Imaging.Desktop" Version="5.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Tools\dcm2niix.exe" />
+    <EmbeddedResource Include="Tools\7za.exe" />
+  </ItemGroup>
+</Project>

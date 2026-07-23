@@ -1,0 +1,2 @@
+c:\Users\marku\Desktop\NewDicomMerger\Publish\NewDicomMerger.pdb
+c:\Users\marku\Desktop\NewDicomMerger\Publish\NewDicomMerger.exe

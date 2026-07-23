@@ -1,0 +1,36 @@
+    SpacingBetweenSlices: 5,0000 mm
+    SpacingBetweenSlices: 3,0000 mm
+    SpacingBetweenSlices: 3,0000 mm
+    SpacingBetweenSlices: 3,0000 mm
+    SpacingBetweenSlices: 3,0000 mm
+    Größe: 208×260 × 51 Frames, 16 Bit, 1ch, MR
+    Größe: 250×320 × 73 Frames, 16 Bit, 1ch, MR
+    Größe: 250×320 × 73 Frames, 16 Bit, 1ch, MR
+    Größe: 250×320 × 73 Frames, 16 Bit, 1ch, MR
+    Größe: 250×320 × 73 Frames, 16 Bit, 1ch, MR
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+✓ K_hn_Sylvia-ep2d_diff_b50_400_800_tra_p2_trig_ADC.dcm
+✓ K_hn_Sylvia-t1_vibe_fs_tra_ven_p4_bh_dyn.dcm
+✓ K_hn_Sylvia-t1_vibe_fs_tra_art_p4_bh_dyn.dcm
+✓ K_hn_Sylvia-t1_vibe_fs_tra_p4_bh_nativ.dcm
+✓ K_hn_Sylvia-t1_vibe_fs_tra_pv_p4_bh_dyn.dcm
+    SpacingBetweenSlices: 5,0000 mm
+    SpacingBetweenSlices: 5,0000 mm
+    SpacingBetweenSlices: 5,0000 mm
+    SpacingBetweenSlices: 1,5000 mm
+    Größe: 208×260 × 151 Frames, 16 Bit, 1ch, MR
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+✓ K_hn_Sylvia-ep2d_diff_b50_400_800_tra_p2_trig.dcm
+    Größe: 320×260 × 145 Frames, 16 Bit, 1ch, MR
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+✓ K_hn_Sylvia-t1_vibe_dixon_cor_p6_bh_320_iso_W.dcm
+    Größe: 644×928 × 46 Frames, 16 Bit, 1ch, MR
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+✓ K_hn_Sylvia-t2_haste_tra_p2_ptr.dcm
+    Größe: 864×864 × 41 Frames, 16 Bit, 1ch, MR
+    SOP-Klasse: 1.2.840.10008.5.1.4.1.1.4
+✓ K_hn_Sylvia-t2_haste_cor_p3_mbh.dcm
