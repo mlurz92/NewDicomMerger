@@ -1368,8 +1368,11 @@ public partial class MainWindow : Window
             .Replace("{Accession}", accession);
 
         // Sanitize filename
-        return string.Join("_", result.Split(System.IO.Path.GetInvalidFileNameChars()));
+        return SanitizeOutputFileName(result);
     }
+
+    private static string SanitizeOutputFileName(string value)
+        => string.Join("_", value.Split(System.IO.Path.GetInvalidFileNameChars()));
 
     private void UpdateTemplatePreview()
     {
@@ -1498,6 +1501,7 @@ public partial class MainWindow : Window
 
         bool anonymize = CheckAnonymize.IsChecked == true;
         bool compressDicom = CheckCompressDicom.IsChecked == true;
+        bool splitDiffusionBValues = CheckSplitDiffusionBValues.IsChecked == true;
         string customOutDir = TxtOutputDir.Text.Trim();
         var r = new MergeResult { GroupsFound = selectedItems.Count };
 
@@ -1547,21 +1551,55 @@ public partial class MainWindow : Window
                 {
                     // Feature 12: Use template system
                     string safeName = Dispatcher.Invoke(() => ResolveTemplate(template, item));
-                    outPath = System.IO.Path.Combine(outBaseDir, $"{safeName}.dcm");
+                    var bValueSeries = splitDiffusionBValues
+                        ? FrameMerger.SplitByDiffusionBValue(group)
+                        : [];
 
-                    await Task.Run(() => merger.Merge(group, outPath, item.PatientName, item.SeriesName, anonymize, compressDicom, token, anonymizer), token);
-
-                    lock (r) { r.CreatedFiles++; }
-                    Dispatcher.Invoke(() => AppendLog($"✓ {System.IO.Path.GetFileName(outPath)}"));
-                    _batchReport.Add(new BatchReportEntry
+                    if (bValueSeries.Count > 0)
                     {
-                        PatientName = item.PatientName,
-                        SeriesName = item.SeriesName,
-                        Modality = item.Modality,
-                        FrameCount = item.FrameCount,
-                        Success = true,
-                        OutputPath = outPath
-                    });
+                        Dispatcher.Invoke(() => AppendLog($"↳ Brainlab b-Wert-Aufteilung: {bValueSeries.Count} Datei(en) für {item.SeriesName}"));
+
+                        foreach (var bSeries in bValueSeries)
+                        {
+                            token.ThrowIfCancellationRequested();
+
+                            string bValueSeriesName = $"{item.SeriesName} b{bSeries.BValue}";
+                            string bValueSafeName = SanitizeOutputFileName($"{safeName}_b{bSeries.BValue}");
+                            outPath = System.IO.Path.Combine(outBaseDir, $"{bValueSafeName}.dcm");
+
+                            await Task.Run(() => merger.Merge(bSeries.Group, outPath, item.PatientName, bValueSeriesName, anonymize, compressDicom, token, anonymizer), token);
+
+                            lock (r) { r.CreatedFiles++; }
+                            Dispatcher.Invoke(() => AppendLog($"✓ {System.IO.Path.GetFileName(outPath)} ({bSeries.Group.Files.Count} Frames, b={bSeries.BValue})"));
+                            _batchReport.Add(new BatchReportEntry
+                            {
+                                PatientName = item.PatientName,
+                                SeriesName = bValueSeriesName,
+                                Modality = item.Modality,
+                                FrameCount = bSeries.Group.Files.Count,
+                                Success = true,
+                                OutputPath = outPath
+                            });
+                        }
+                    }
+                    else
+                    {
+                        outPath = System.IO.Path.Combine(outBaseDir, $"{safeName}.dcm");
+
+                        await Task.Run(() => merger.Merge(group, outPath, item.PatientName, item.SeriesName, anonymize, compressDicom, token, anonymizer), token);
+
+                        lock (r) { r.CreatedFiles++; }
+                        Dispatcher.Invoke(() => AppendLog($"✓ {System.IO.Path.GetFileName(outPath)}"));
+                        _batchReport.Add(new BatchReportEntry
+                        {
+                            PatientName = item.PatientName,
+                            SeriesName = item.SeriesName,
+                            Modality = item.Modality,
+                            FrameCount = item.FrameCount,
+                            Success = true,
+                            OutputPath = outPath
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
