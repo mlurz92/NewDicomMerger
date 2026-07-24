@@ -33,7 +33,7 @@ public sealed class FrameSplitter
         public const string SecondaryCaptureImageStorage = "1.2.840.10008.5.1.4.1.1.7";
     }
 
-    public void Split(LoadedDicom file, string outputDirectory, string patientName, string seriesDescription, bool anonymize = false, CancellationToken ct = default, SeriesDeidentifier? anonymizer = null)
+    public void Split(LoadedDicom file, string outputDirectory, string patientName, string seriesDescription, bool anonymize = false, CancellationToken ct = default, SeriesDeidentifier? anonymizer = null, bool splitByBValue = false, bool formatBrainlabDti = false)
     {
         ct.ThrowIfCancellationRequested();
         var fullFile = DicomFile.Open(file.FilePath, DicomScanner.LegacyFallbackEncoding, readOption: FileReadOption.ReadAll);
@@ -76,6 +76,9 @@ public sealed class FrameSplitter
             : null;
         var sharedItem = (sharedSeq != null && sharedSeq.Items.Count > 0) ? sharedSeq.Items[0] : null;
 
+        string baseSeriesUid = masterDs.GetSingleValueOrDefault(DicomTag.SeriesInstanceUID, DicomUID.Generate().UID);
+        string baseSeriesDesc = masterDs.GetSingleValueOrDefault(DicomTag.SeriesDescription, "Serie");
+
         for (int i = 0; i < frameCount; i++)
         {
             ct.ThrowIfCancellationRequested();
@@ -93,6 +96,28 @@ public sealed class FrameSplitter
             DicomScanner.SafeSetUid(frameDs, DicomTag.SOPClassUID, newSopClassUid);
             string newSopInstance = DicomUID.Generate().UID;
             DicomScanner.SafeSetUid(frameDs, DicomTag.SOPInstanceUID, newSopInstance);
+
+            // Extract frame B-value
+            int? frameB = DiffusionBValueHelper.ExtractFrameBValue(masterDs, i);
+
+            if (frameB.HasValue)
+            {
+                frameDs.AddOrUpdate(DicomTag.DiffusionBValue, (double)frameB.Value);
+                if (splitByBValue)
+                {
+                    string bSeriesUid = DiffusionBValueHelper.GenerateDerivedUid(baseSeriesUid, frameB.Value);
+                    DicomScanner.SafeSetUid(frameDs, DicomTag.SeriesInstanceUID, bSeriesUid);
+                    string bDesc = baseSeriesDesc.Contains($"_b{frameB.Value}", StringComparison.OrdinalIgnoreCase)
+                        ? baseSeriesDesc
+                        : $"{baseSeriesDesc}_b{frameB.Value}";
+                    frameDs.AddOrUpdate(DicomTag.SeriesDescription, bDesc);
+                }
+            }
+
+            if (formatBrainlabDti || DiffusionBValueHelper.IsDiffusionOrDtiOrDki(masterDs))
+            {
+                DiffusionBValueHelper.ApplyBrainlabDtiFormatting(frameDs, frameB, _warn, _log);
+            }
 
             // 4. Update Instance Number
             frameDs.AddOrUpdate(DicomTag.InstanceNumber, i + 1);
@@ -134,11 +159,18 @@ public sealed class FrameSplitter
             // Bugfix: declare the charset explicitly (see FrameMerger.Merge for the full
             // rationale) so umlauts in patient/study text round-trip correctly instead of
             // silently defaulting to ASCII on the next read.
-            frameDs.AddOrUpdate(DicomTag.SpecificCharacterSet, "ISO_IR 100");
+            frameDs.AddOrUpdate(DicomTag.SpecificCharacterSet, "ISO_IR 192");
 
-            // Generate filename: prefix zeros to sort properly e.g. Frame_0001.dcm
+            // Generate filename & subfolder per B-value if splitByBValue is set
+            string targetFolder = outputDirectory;
+            if (splitByBValue && frameB.HasValue)
+            {
+                targetFolder = Path.Combine(outputDirectory, $"b{frameB.Value}");
+                Directory.CreateDirectory(targetFolder);
+            }
+
             string fileName = $"Frame_{i + 1:D4}.dcm";
-            string outputPath = Path.Combine(outputDirectory, fileName);
+            string outputPath = Path.Combine(targetFolder, fileName);
 
             ct.ThrowIfCancellationRequested();
             newFile.Save(outputPath);

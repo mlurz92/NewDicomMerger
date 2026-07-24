@@ -68,6 +68,7 @@ public partial class MainWindow : Window
 
     private bool _isProcessing;
     private ObservableCollection<ReviewItemViewModel> _reviewItems = new();
+    private List<LoadedDicom> _allLoadedFiles = new();
     private List<string> _tempZipFolders = new();
     private List<ProcessingJob> _jobs = new();
     private CancellationTokenSource? _cts;
@@ -137,6 +138,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _dashboardTimer?.Stop();
+        CleanupTempFolders();
         base.OnClosed(e);
     }
 
@@ -514,129 +516,16 @@ public partial class MainWindow : Window
                 }
 
                 var allLoaded = loadedBag.ToList();
+                _allLoadedFiles = allLoaded;
+
+                bool splitByBValue = Dispatcher.Invoke(() => CheckSplitBValues.IsChecked == true);
 
                 Dispatcher.Invoke(() => DashboardStatusText.Text = "Gruppiere Serien…");
-                var groups = scanner.GroupAndSort(allLoaded, result, ct);
+                var groups = scanner.GroupAndSort(allLoaded, result, splitByBValue, ct);
 
                 Dispatcher.Invoke(() =>
                 {
-                    var groupInfoList = groups.Select(g =>
-                    {
-                        var first = g.Files[0];
-                        var ds = first.File.Dataset;
-                        string pName = ds.GetSingleValueOrDefault(DicomTag.PatientName, "Unbekannt").Replace("^", "_").Trim();
-                        string pId = ds.GetSingleValueOrDefault(DicomTag.PatientID, pName).Trim();
-                        string sName = ds.GetSingleValueOrDefault(DicomTag.SeriesDescription, "Serie").Trim();
-                        string studyUid = g.StudyInstanceUid;
-                        int seriesNumber = ds.GetSingleValueOrDefault(DicomTag.SeriesNumber, 0);
-
-                        string sDate = ds.GetSingleValueOrDefault(DicomTag.StudyDate, "");
-                        string sTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, "");
-                        string sortableDateTime = $"{sDate}_{sTime}";
-
-                        return new
-                        {
-                            Group = g,
-                            PatientKey = string.IsNullOrEmpty(pId) ? pName.ToLowerInvariant() : pId.ToLowerInvariant(),
-                            PatientName = pName,
-                            OriginalSeriesName = sName,
-                            SeriesName = sName,
-                            StudyInstanceUid = studyUid,
-                            SeriesNumber = seriesNumber,
-                            StudyDateTime = sortableDateTime,
-                            FirstFile = first
-                        };
-                    }).ToList();
-
-                    // 1) Multiple studies per patient -> add _VU suffix to earlier studies
-                    var byPatient = groupInfoList.GroupBy(x => x.PatientKey);
-                    var processedItems = new List<(SeriesGroup Group, string PatientName, string SeriesName, LoadedDicom FirstFile, bool IsLocalizer)>();
-
-                    foreach (var patientGroup in byPatient)
-                    {
-                        var studies = patientGroup.GroupBy(x => x.StudyInstanceUid).ToList();
-                        
-                        HashSet<string> earlierStudyUids = new();
-                        if (studies.Count > 1)
-                        {
-                            var sortedStudies = studies
-                                .Select(st => new
-                                {
-                                    StudyUid = st.Key,
-                                    DateTime = st.Max(item => item.StudyDateTime)
-                                })
-                                .OrderBy(st => st.DateTime)
-                                .ToList();
-
-                            for (int i = 0; i < sortedStudies.Count - 1; i++)
-                            {
-                                earlierStudyUids.Add(sortedStudies[i].StudyUid);
-                            }
-                        }
-
-                        var patientSeriesList = patientGroup.Select(x =>
-                        {
-                            string finalName = x.OriginalSeriesName;
-                            if (earlierStudyUids.Contains(x.StudyInstanceUid))
-                            {
-                                if (!finalName.EndsWith("_VU", StringComparison.OrdinalIgnoreCase))
-                                    finalName += "_VU";
-                            }
-                            return new
-                            {
-                                x.Group,
-                                x.PatientName,
-                                OriginalSeriesName = x.OriginalSeriesName,
-                                SeriesName = finalName,
-                                x.StudyInstanceUid,
-                                x.SeriesNumber,
-                                x.FirstFile
-                            };
-                        }).ToList();
-
-                        // 2) Disambiguate duplicate series names within the same study (_1, _2, _3, ...)
-                        var byStudy = patientSeriesList.GroupBy(x => x.StudyInstanceUid);
-                        foreach (var studyGroup in byStudy)
-                        {
-                            var byName = studyGroup.GroupBy(x => x.SeriesName, StringComparer.OrdinalIgnoreCase);
-                            foreach (var nameGroup in byName)
-                            {
-                                var list = nameGroup.OrderBy(x => x.SeriesNumber).ThenBy(x => x.Group.SeriesInstanceUid).ToList();
-                                if (list.Count > 1)
-                                {
-                                    for (int i = 0; i < list.Count; i++)
-                                    {
-                                        var item = list[i];
-                                        string disambiguatedName = $"{item.SeriesName}_{i + 1}";
-                                        bool isLoc = IsLocalizerSeries(item.Group);
-                                        processedItems.Add((item.Group, item.PatientName, disambiguatedName, item.FirstFile, isLoc));
-                                    }
-                                }
-                                else
-                                {
-                                    var item = list[0];
-                                    bool isLoc = IsLocalizerSeries(item.Group);
-                                    processedItems.Add((item.Group, item.PatientName, item.SeriesName, item.FirstFile, isLoc));
-                                }
-                            }
-                        }
-                    }
-
-                    foreach (var (g, pName, sName, first, isLoc) in processedItems)
-                    {
-                        _reviewItems.Add(new ReviewItemViewModel
-                        {
-                            OriginalGroup = g,
-                            OriginalPatientName = pName,
-                            PatientName = pName,
-                            OriginalSeriesName = sName,
-                            SeriesName = sName,
-                            Modality = first.Modality,
-                            FrameCount = g.Files.Count,
-                            ExcludedFileCount = g.ExcludedFileCount,
-                            IsSelected = !isLoc // Localizer Aufnahmen automatisch abwählen
-                        });
-                    }
+                    PopulateReviewGrid(groups);
 
                     if (_jobs.Count > 0 && string.IsNullOrEmpty(TxtOutputDir.Text))
                         TxtOutputDir.Text = _jobs[0].OutputDirectory;
@@ -679,6 +568,218 @@ public partial class MainWindow : Window
             _isProcessing = false;
             BrowseButton.IsEnabled = true;
         }
+    }
+
+    private void PopulateReviewGrid(List<SeriesGroup> groups)
+    {
+        _reviewItems.Clear();
+
+        var groupInfoList = groups.Select(g =>
+        {
+            var first = g.Files[0];
+            var ds = first.File.Dataset;
+            string pName = ds.GetSingleValueOrDefault(DicomTag.PatientName, "Unbekannt").Replace("^", "_").Trim();
+            string pId = ds.GetSingleValueOrDefault(DicomTag.PatientID, pName).Trim();
+            string sName = ds.GetSingleValueOrDefault(DicomTag.SeriesDescription, "Serie").Trim();
+            string studyUid = g.StudyInstanceUid;
+            int seriesNumber = ds.GetSingleValueOrDefault(DicomTag.SeriesNumber, 0);
+            int acqNumber = ds.GetSingleValueOrDefault(DicomTag.AcquisitionNumber, 0);
+
+            string sortableDateTime = GetSortableStudyDateTime(ds);
+            string seriesTime = GetSortableSeriesTime(ds);
+
+            int? bVal = DiffusionBValueHelper.ExtractBValue(first.Dataset);
+            if (bVal.HasValue && !sName.Contains($"b{bVal.Value}", StringComparison.OrdinalIgnoreCase) && !sName.Contains($"b={bVal.Value}", StringComparison.OrdinalIgnoreCase))
+            {
+                sName = $"{sName}_b{bVal.Value}";
+            }
+
+            return new
+            {
+                Group = g,
+                PatientKey = string.IsNullOrEmpty(pId) ? pName.ToLowerInvariant() : pId.ToLowerInvariant(),
+                PatientName = pName,
+                OriginalSeriesName = sName,
+                SeriesName = sName,
+                StudyInstanceUid = studyUid,
+                SeriesNumber = seriesNumber,
+                AcquisitionNumber = acqNumber,
+                StudyDateTime = sortableDateTime,
+                SeriesTime = seriesTime,
+                FirstFile = first,
+                BValue = bVal
+            };
+        }).ToList();
+
+        // 1) Multiple studies per patient -> add _VU suffix to earlier studies
+        var byPatient = groupInfoList.GroupBy(x => x.PatientKey);
+        var processedItems = new List<(SeriesGroup Group, string PatientName, string SeriesName, LoadedDicom FirstFile, bool IsLocalizer, int? BValue)>();
+
+        foreach (var patientGroup in byPatient)
+        {
+            var studies = patientGroup.GroupBy(x => x.StudyInstanceUid).ToList();
+
+            HashSet<string> earlierStudyUids = new();
+            if (studies.Count > 1)
+            {
+                var sortedStudies = studies
+                    .Select(st => new
+                    {
+                        StudyUid = st.Key,
+                        DateTime = st.Max(item => item.StudyDateTime)
+                    })
+                    .OrderBy(st => st.DateTime)
+                    .ToList();
+
+                // Earlier (older) studies get the _VU suffix
+                for (int i = 0; i < sortedStudies.Count - 1; i++)
+                {
+                    earlierStudyUids.Add(sortedStudies[i].StudyUid);
+                }
+            }
+
+            var patientSeriesList = patientGroup.Select(x =>
+            {
+                string finalName = x.OriginalSeriesName;
+                if (earlierStudyUids.Contains(x.StudyInstanceUid))
+                {
+                    if (!finalName.EndsWith("_VU", StringComparison.OrdinalIgnoreCase))
+                        finalName += "_VU";
+                }
+                return new
+                {
+                    x.Group,
+                    x.PatientName,
+                    OriginalSeriesName = x.OriginalSeriesName,
+                    SeriesName = finalName,
+                    x.StudyInstanceUid,
+                    x.SeriesNumber,
+                    x.AcquisitionNumber,
+                    x.SeriesTime,
+                    x.FirstFile,
+                    x.BValue
+                };
+            }).ToList();
+
+            // 2) Disambiguate dynamic / duplicate series names within the same study (_1, _2, _3, ...) chronologically
+            var byStudy = patientSeriesList.GroupBy(x => x.StudyInstanceUid);
+            foreach (var studyGroup in byStudy)
+            {
+                var byName = studyGroup.GroupBy(x => x.SeriesName, StringComparer.OrdinalIgnoreCase);
+                foreach (var nameGroup in byName)
+                {
+                    var list = nameGroup
+                        .OrderBy(x => x.SeriesTime)
+                        .ThenBy(x => x.SeriesNumber)
+                        .ThenBy(x => x.AcquisitionNumber)
+                        .ThenBy(x => x.Group.SeriesInstanceUid)
+                        .ToList();
+
+                    if (list.Count > 1)
+                    {
+                        for (int i = 0; i < list.Count; i++)
+                        {
+                            var item = list[i];
+                            string disambiguatedName = $"{item.SeriesName}_{i + 1}";
+                            bool isLoc = IsLocalizerSeries(item.Group);
+                            processedItems.Add((item.Group, item.PatientName, disambiguatedName, item.FirstFile, isLoc, item.BValue));
+                        }
+                    }
+                    else
+                    {
+                        var item = list[0];
+                        bool isLoc = IsLocalizerSeries(item.Group);
+                        processedItems.Add((item.Group, item.PatientName, item.SeriesName, item.FirstFile, isLoc, item.BValue));
+                    }
+                }
+            }
+        }
+
+        foreach (var (g, pName, sName, first, isLoc, bVal) in processedItems)
+        {
+            string bValText = bVal.HasValue ? $"b={bVal.Value}" : "";
+            _reviewItems.Add(new ReviewItemViewModel
+            {
+                OriginalGroup = g,
+                OriginalPatientName = pName,
+                PatientName = pName,
+                OriginalSeriesName = sName,
+                SeriesName = sName,
+                Modality = first.Modality,
+                FrameCount = g.TotalFrames,
+                BValueText = bValText,
+                ExcludedFileCount = g.ExcludedFileCount,
+                IsSelected = !isLoc
+            });
+        }
+    }
+
+    private async void CheckSplitBValues_Click(object sender, RoutedEventArgs e)
+    {
+        if (_allLoadedFiles == null || _allLoadedFiles.Count == 0) return;
+
+        bool splitByBValue = CheckSplitBValues.IsChecked == true;
+        var result = new MergeResult();
+        var scanner = new DicomScanner(msg => Dispatcher.Invoke(() => AppendLog(msg)));
+        var groups = await Task.Run(() => scanner.GroupAndSort(_allLoadedFiles, result, splitByBValue));
+
+        PopulateReviewGrid(groups);
+    }
+
+    private async void CheckBrainlabFormat_Click(object sender, RoutedEventArgs e)
+    {
+        if (CheckBrainlabFormat.IsChecked == true)
+        {
+            CheckSplitBValues.IsChecked = true;
+        }
+
+        if (_allLoadedFiles == null || _allLoadedFiles.Count == 0) return;
+
+        bool splitByBValue = CheckSplitBValues.IsChecked == true;
+        var result = new MergeResult();
+        var scanner = new DicomScanner(msg => Dispatcher.Invoke(() => AppendLog(msg)));
+        var groups = await Task.Run(() => scanner.GroupAndSort(_allLoadedFiles, result, splitByBValue));
+
+        PopulateReviewGrid(groups);
+    }
+
+    private static string GetSortableStudyDateTime(DicomDataset ds)
+    {
+        string date = GetFirstNonEmptyTagValue(ds, DicomTag.StudyDate, DicomTag.AcquisitionDate, DicomTag.SeriesDate, DicomTag.ContentDate, DicomTag.InstanceCreationDate);
+        string time = GetFirstNonEmptyTagValue(ds, DicomTag.StudyTime, DicomTag.AcquisitionTime, DicomTag.SeriesTime, DicomTag.ContentTime, DicomTag.InstanceCreationTime);
+
+        string cleanDate = System.Text.RegularExpressions.Regex.Replace(date, @"[^\d]", "");
+        string cleanTime = System.Text.RegularExpressions.Regex.Replace(time, @"[^\d]", "");
+
+        if (cleanDate.Length < 8) cleanDate = cleanDate.PadRight(8, '0');
+        if (cleanTime.Length < 6) cleanTime = cleanTime.PadRight(6, '0');
+
+        return $"{cleanDate}_{cleanTime}";
+    }
+
+    private static string GetSortableSeriesTime(DicomDataset ds)
+    {
+        string time = GetFirstNonEmptyTagValue(ds, DicomTag.AcquisitionTime, DicomTag.SeriesTime, DicomTag.ContentTime, DicomTag.StudyTime);
+        string cleanTime = System.Text.RegularExpressions.Regex.Replace(time, @"[^\d]", "");
+        if (cleanTime.Length < 6) cleanTime = cleanTime.PadRight(6, '0');
+        return cleanTime;
+    }
+
+    private static string GetFirstNonEmptyTagValue(DicomDataset ds, params DicomTag[] tags)
+    {
+        foreach (var tag in tags)
+        {
+            if (ds != null && ds.Contains(tag))
+            {
+                try
+                {
+                    string val = ds.GetSingleValueOrDefault(tag, "").Trim();
+                    if (!string.IsNullOrEmpty(val)) return val;
+                }
+                catch { }
+            }
+        }
+        return "";
     }
 
 
@@ -1368,11 +1469,8 @@ public partial class MainWindow : Window
             .Replace("{Accession}", accession);
 
         // Sanitize filename
-        return SanitizeOutputFileName(result);
+        return string.Join("_", result.Split(System.IO.Path.GetInvalidFileNameChars()));
     }
-
-    private static string SanitizeOutputFileName(string value)
-        => string.Join("_", value.Split(System.IO.Path.GetInvalidFileNameChars()));
 
     private void UpdateTemplatePreview()
     {
@@ -1501,7 +1599,6 @@ public partial class MainWindow : Window
 
         bool anonymize = CheckAnonymize.IsChecked == true;
         bool compressDicom = CheckCompressDicom.IsChecked == true;
-        bool splitDiffusionBValues = CheckSplitDiffusionBValues.IsChecked == true;
         string customOutDir = TxtOutputDir.Text.Trim();
         var r = new MergeResult { GroupsFound = selectedItems.Count };
 
@@ -1535,7 +1632,7 @@ public partial class MainWindow : Window
                     : customOutDir;
 
                 string outBaseDir = baseOutDir;
-                if (job != null && firstFile.StartsWith(job.InputDirectory, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrEmpty(customOutDir) && job != null && firstFile.StartsWith(job.InputDirectory, StringComparison.OrdinalIgnoreCase))
                 {
                     string fileDir = System.IO.Path.GetDirectoryName(firstFile)!;
                     if (fileDir.Length > job.InputDirectory.Length)
@@ -1551,55 +1648,22 @@ public partial class MainWindow : Window
                 {
                     // Feature 12: Use template system
                     string safeName = Dispatcher.Invoke(() => ResolveTemplate(template, item));
-                    var bValueSeries = splitDiffusionBValues
-                        ? FrameMerger.SplitByDiffusionBValue(group)
-                        : [];
+                    outPath = System.IO.Path.Combine(outBaseDir, $"{safeName}.dcm");
 
-                    if (bValueSeries.Count > 0)
+                    bool formatBrainlab = Dispatcher.Invoke(() => CheckBrainlabFormat.IsChecked == true);
+                    await Task.Run(() => merger.Merge(group, outPath, item.PatientName, item.SeriesName, anonymize, compressDicom, token, anonymizer, formatBrainlab), token);
+
+                    lock (r) { r.CreatedFiles++; }
+                    Dispatcher.Invoke(() => AppendLog($"✓ {System.IO.Path.GetFileName(outPath)}"));
+                    _batchReport.Add(new BatchReportEntry
                     {
-                        Dispatcher.Invoke(() => AppendLog($"↳ Brainlab b-Wert-Aufteilung: {bValueSeries.Count} Datei(en) für {item.SeriesName}"));
-
-                        foreach (var bSeries in bValueSeries)
-                        {
-                            token.ThrowIfCancellationRequested();
-
-                            string bValueSeriesName = $"{item.SeriesName} b{bSeries.BValue}";
-                            string bValueSafeName = SanitizeOutputFileName($"{safeName}_b{bSeries.BValue}");
-                            outPath = System.IO.Path.Combine(outBaseDir, $"{bValueSafeName}.dcm");
-
-                            await Task.Run(() => merger.Merge(bSeries.Group, outPath, item.PatientName, bValueSeriesName, anonymize, compressDicom, token, anonymizer), token);
-
-                            lock (r) { r.CreatedFiles++; }
-                            Dispatcher.Invoke(() => AppendLog($"✓ {System.IO.Path.GetFileName(outPath)} ({bSeries.Group.Files.Count} Frames, b={bSeries.BValue})"));
-                            _batchReport.Add(new BatchReportEntry
-                            {
-                                PatientName = item.PatientName,
-                                SeriesName = bValueSeriesName,
-                                Modality = item.Modality,
-                                FrameCount = bSeries.Group.Files.Count,
-                                Success = true,
-                                OutputPath = outPath
-                            });
-                        }
-                    }
-                    else
-                    {
-                        outPath = System.IO.Path.Combine(outBaseDir, $"{safeName}.dcm");
-
-                        await Task.Run(() => merger.Merge(group, outPath, item.PatientName, item.SeriesName, anonymize, compressDicom, token, anonymizer), token);
-
-                        lock (r) { r.CreatedFiles++; }
-                        Dispatcher.Invoke(() => AppendLog($"✓ {System.IO.Path.GetFileName(outPath)}"));
-                        _batchReport.Add(new BatchReportEntry
-                        {
-                            PatientName = item.PatientName,
-                            SeriesName = item.SeriesName,
-                            Modality = item.Modality,
-                            FrameCount = item.FrameCount,
-                            Success = true,
-                            OutputPath = outPath
-                        });
-                    }
+                        PatientName = item.PatientName,
+                        SeriesName = item.SeriesName,
+                        Modality = item.Modality,
+                        FrameCount = item.FrameCount,
+                        Success = true,
+                        OutputPath = outPath
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -1682,7 +1746,7 @@ public partial class MainWindow : Window
                     : customOutDir;
 
                 string outBaseDir = baseOutDir;
-                if (job != null && firstFilePath.StartsWith(job.InputDirectory, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrEmpty(customOutDir) && job != null && firstFilePath.StartsWith(job.InputDirectory, StringComparison.OrdinalIgnoreCase))
                 {
                     string fileDir = System.IO.Path.GetDirectoryName(firstFilePath)!;
                     if (fileDir.Length > job.InputDirectory.Length)
@@ -1699,7 +1763,9 @@ public partial class MainWindow : Window
                     outDir = System.IO.Path.Combine(outBaseDir, baseName);
                     Directory.CreateDirectory(outDir);
 
-                    await Task.Run(() => splitter.Split(file, outDir, item.PatientName, item.SeriesName, anonymize, token, anonymizer), token);
+                    bool splitByBValue = Dispatcher.Invoke(() => CheckSplitBValues.IsChecked == true);
+                    bool formatBrainlab = Dispatcher.Invoke(() => CheckBrainlabFormat.IsChecked == true);
+                    await Task.Run(() => splitter.Split(file, outDir, item.PatientName, item.SeriesName, anonymize, token, anonymizer, splitByBValue, formatBrainlab), token);
                     Interlocked.Increment(ref created);
                     _batchReport.Add(new BatchReportEntry
                     {

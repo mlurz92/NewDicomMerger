@@ -489,3 +489,4 @@ C:\Users\marku\Desktop\NewDicomMerger\obj\Release\net8.0-windows\win-x64\NewDico
 C:\Users\marku\Desktop\NewDicomMerger\obj\Release\net8.0-windows\win-x64\NewDicomMerger.genruntimeconfig.cache
 C:\Users\marku\Desktop\NewDicomMerger\obj\Release\net8.0-windows\win-x64\ref\NewDicomMerger.dll
 C:\Users\marku\Desktop\NewDicomMerger\bin\Release\net8.0-windows\win-x64\fo-dicom.Imaging.Desktop.dll
+C:\Users\marku\Desktop\NewDicomMerger\obj\Release\net8.0-windows\win-x64\NewDicomMerger.sourcelink.json

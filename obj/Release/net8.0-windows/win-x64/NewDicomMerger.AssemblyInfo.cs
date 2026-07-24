@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NewDicomMerger")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d6eaa65cf43919d8014cac72f0bacb52a1c541e7")]
 [assembly: System.Reflection.AssemblyProductAttribute("NewDicomMerger")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NewDicomMerger")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

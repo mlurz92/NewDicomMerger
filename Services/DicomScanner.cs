@@ -179,7 +179,22 @@ public sealed class DicomScanner
             return null;
         }
 
-        int numberOfFrames = ds.GetSingleValueOrDefault(DicomTag.NumberOfFrames, 1);
+        int numberOfFrames = 1;
+        if (ds.Contains(DicomTag.NumberOfFrames))
+        {
+            try { numberOfFrames = ds.GetSingleValueOrDefault(DicomTag.NumberOfFrames, 1); }
+            catch
+            {
+                try
+                {
+                    string str = ds.GetString(DicomTag.NumberOfFrames);
+                    if (int.TryParse(str?.Trim(), out int val) && val > 0)
+                        numberOfFrames = val;
+                }
+                catch { }
+            }
+        }
+
         int instanceNumber = ds.GetSingleValueOrDefault(DicomTag.InstanceNumber, 0);
         string modality = ds.GetSingleValueOrDefault(DicomTag.Modality, "OT");
         string photometric = ds.GetSingleValueOrDefault(
@@ -204,7 +219,8 @@ public sealed class DicomScanner
             TransferSyntaxUid = tsUid,
             Modality = modality,
             PhotometricInterpretation = photometric,
-            IsMultiFrame = numberOfFrames > 1
+            IsMultiFrame = numberOfFrames > 1,
+            NumberOfFrames = numberOfFrames
         };
     }
 
@@ -214,7 +230,7 @@ public sealed class DicomScanner
     /// Groups loaded DICOMs by Study+Series, validates consistency within each group,
     /// excludes inconsistent files, and sorts each group geometrically.
     /// </summary>
-    public List<SeriesGroup> GroupAndSort(List<LoadedDicom> loaded, MergeResult result, CancellationToken ct = default)
+    public List<SeriesGroup> GroupAndSort(List<LoadedDicom> loaded, MergeResult result, bool splitByBValue = false, CancellationToken ct = default)
     {
         var groups = new List<SeriesGroup>();
 
@@ -226,7 +242,7 @@ public sealed class DicomScanner
         {
             ct.ThrowIfCancellationRequested();
             var files = seriesGroup.ToList();
-            if (files.Count < 2 && !files[0].IsMultiFrame) continue;
+            if (files.Sum(f => f.NumberOfFrames) < 2) continue;
 
             // Pixel-property consistency check.
             // Includes BitsStored/PixelRepresentation/TransferSyntax so that mixed
@@ -252,11 +268,14 @@ public sealed class DicomScanner
                     : reference.SeriesInstanceUid;
                 AddWarning(result,
                     $"Serie {shortUid}: {excluded} Datei(en) mit inkonsistenten Pixel-Eigenschaften ausgeschlossen.");
-                result.SkippedFiles += excluded;
+                lock (result)
+                {
+                    result.SkippedFiles += excluded;
+                }
             }
 
             if (consistent.Count == 0) continue;
-            if (consistent.Count < 2 && !consistent[0].IsMultiFrame) continue;
+            if (consistent.Sum(f => f.NumberOfFrames) < 2) continue;
 
             var sorted = SortGeometrically(consistent);
             groups.Add(new SeriesGroup
@@ -267,6 +286,32 @@ public sealed class DicomScanner
                 Files = sorted,
                 ExcludedFileCount = excluded
             });
+        }
+
+        if (splitByBValue)
+        {
+            groups = DiffusionBValueHelper.SplitGroupsByBValue(groups);
+
+            var validGroups = new List<SeriesGroup>();
+            foreach (var g in groups)
+            {
+                if (g.TotalFrames < 2)
+                {
+                    string shortUid = g.SeriesInstanceUid.Length > 12
+                        ? g.SeriesInstanceUid[..12] + "…"
+                        : g.SeriesInstanceUid;
+                    AddWarning(result, $"Serie {shortUid}: B-Wert-Gruppe übersprungen (nur 1 Datei).");
+                    lock (result)
+                    {
+                        result.SkippedFiles += g.Files.Count;
+                    }
+                }
+                else
+                {
+                    validGroups.Add(g);
+                }
+            }
+            groups = validGroups;
         }
 
         return groups;

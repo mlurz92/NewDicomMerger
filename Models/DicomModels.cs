@@ -36,6 +36,12 @@ public sealed class LoadedDicom
     public required string Modality { get; init; }
     public required string PhotometricInterpretation { get; init; }
     public required bool IsMultiFrame { get; init; }
+    
+    /// <summary>
+    /// Tatsächliche Anzahl der Frames in dieser spezifischen Datei.
+    /// (1 bei Single-Frame, >1 bei Multi-Frame).
+    /// </summary>
+    public required int NumberOfFrames { get; init; }
 }
 
 /// <summary>
@@ -56,6 +62,12 @@ public sealed class SeriesGroup
     /// status column so the user can see at a glance which series are incomplete.
     /// </summary>
     public int ExcludedFileCount { get; init; }
+
+    /// <summary>
+    /// Berechnet die korrekte, absolute Summe aller in dieser Gruppe enthaltenen Frames
+    /// über alle Dateien (sowohl Single-Frame als auch Multi-Frame) hinweg.
+    /// </summary>
+    public int TotalFrames => Files.Sum(f => f.NumberOfFrames);
 }
 
 /// <summary>

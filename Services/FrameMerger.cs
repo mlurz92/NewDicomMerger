@@ -21,8 +21,6 @@ namespace NewDicomMerger.Services;
 ///   • Patient/study tags are copied via direct DicomItem references, never via DicomTag.Parse("name").
 ///   • Output filenames include a series-index AND a hash of the SeriesInstanceUID for uniqueness.
 /// </summary>
-public sealed record DiffusionBValueSeries(int BValue, SeriesGroup Group);
-
 public sealed class FrameMerger
 {
     private readonly Action<string> _log;
@@ -51,13 +49,65 @@ public sealed class FrameMerger
 
     // ──────────────── Public API ────────────────
 
-    public void Merge(SeriesGroup group, string outputPath, string patientName, string seriesDescription, bool anonymize = false, bool compressDicom = false, CancellationToken ct = default, SeriesDeidentifier? anonymizer = null)
+    public void Merge(SeriesGroup group, string outputPath, string patientName, string seriesDescription, bool anonymize = false, bool compressDicom = false, CancellationToken ct = default, SeriesDeidentifier? anonymizer = null, bool formatBrainlabDti = false)
     {
         ct.ThrowIfCancellationRequested();
         var files = group.Files;
         if (files.Count == 0)
             throw new ArgumentException("SeriesGroup enthält keine Dateien.", nameof(group));
+
         var first = files[0];
+
+        // If the input group contains Multi-Frame volumes, preserve them as multi-frame volumes!
+        bool anyMultiFrame = files.Any(f => f.IsMultiFrame);
+        if (anyMultiFrame)
+        {
+            for (int i = 0; i < files.Count; i++)
+            {
+                var file = files[i];
+                try
+                {
+                    var fullFile = DicomFile.Open(file.FilePath, DicomScanner.LegacyFallbackEncoding, readOption: FileReadOption.ReadAll);
+                    if (!string.IsNullOrWhiteSpace(patientName))
+                        fullFile.Dataset.AddOrUpdate(DicomTag.PatientName, patientName);
+                    if (!string.IsNullOrWhiteSpace(seriesDescription))
+                        fullFile.Dataset.AddOrUpdate(DicomTag.SeriesDescription, seriesDescription);
+
+                    int? bValMulti = DiffusionBValueHelper.ExtractBValue(fullFile.Dataset);
+                    if (formatBrainlabDti || DiffusionBValueHelper.IsDiffusionOrDtiOrDki(fullFile.Dataset))
+                    {
+                        DiffusionBValueHelper.ApplyBrainlabDtiFormatting(fullFile.Dataset, bValMulti, _warn, _log);
+                    }
+
+                    if (anonymize && anonymizer != null)
+                        anonymizer.Anonymize(fullFile.Dataset);
+
+                    string outPath = outputPath;
+                    if (files.Count > 1)
+                    {
+                        string dir = Path.GetDirectoryName(outputPath) ?? "";
+                        string fn = Path.GetFileNameWithoutExtension(outputPath);
+                        string ext = Path.GetExtension(outputPath);
+                        outPath = Path.Combine(dir, $"{fn}_{i + 1}{ext}");
+                    }
+                    fullFile.Save(outPath);
+                    int mfCount = file.NumberOfFrames;
+                    _log($"✓ Multi-Frame Volume {(files.Count > 1 ? $"{i+1}/{files.Count} " : "")}verarbeitet ({mfCount} Frames): {Path.GetFileName(outPath)}");
+                }
+                catch (Exception ex)
+                {
+                    _warn?.Invoke($"Fehler beim Verarbeiten des Multi-Frame Volumes {Path.GetFileName(file.FilePath)}: {ex.Message}");
+                }
+            }
+            return;
+        }
+
+        if (files.Count < 2)
+        {
+            _warn?.Invoke($"Serie '{seriesDescription}' übersprungen (enthält nur {files.Count} Einzelbild-Datei).");
+            return;
+        }
+
         int frameCount = files.Count;
 
         // ── Resolve transfer syntax ──
@@ -101,6 +151,17 @@ public sealed class FrameMerger
             ds.AddOrUpdate(DicomTag.PatientName, patientName);
         if (!string.IsNullOrWhiteSpace(seriesDescription))
             ds.AddOrUpdate(DicomTag.SeriesDescription, seriesDescription);
+
+        int? bVal = DiffusionBValueHelper.ExtractBValue(first.Dataset);
+        if (bVal.HasValue)
+        {
+            ds.AddOrUpdate(DicomTag.DiffusionBValue, (double)bVal.Value);
+        }
+
+        if (formatBrainlabDti || DiffusionBValueHelper.IsDiffusionOrDtiOrDki(first.Dataset))
+        {
+            DiffusionBValueHelper.ApplyBrainlabDtiFormatting(ds, bVal, _warn, _log);
+        }
 
         // ── Pixel attributes ──
         ds.AddOrUpdate(DicomTag.Rows, (ushort)rows);
@@ -208,7 +269,7 @@ public sealed class FrameMerger
         // DicomDirWriter) instead of silently defaulting to ISO_IR 6 (ASCII), which is what
         // caused "Kühn" to show up as "K?hn" in the first place when the SOURCE file didn't
         // declare a charset either.
-        ds.AddOrUpdate(DicomTag.SpecificCharacterSet, "ISO_IR 100");
+        ds.AddOrUpdate(DicomTag.SpecificCharacterSet, "ISO_IR 192");
 
         // ── Save ──
         ct.ThrowIfCancellationRequested();
@@ -237,90 +298,6 @@ public sealed class FrameMerger
              $"{bitsAllocated} Bit, {samplesPerPixel}ch, {first.Modality}");
         _log($"    SOP-Klasse: {SopClassDisplayName(sopClassUid)}");
     }
-
-    public static IReadOnlyList<DiffusionBValueSeries> SplitByDiffusionBValue(SeriesGroup group)
-    {
-        var withBValues = group.Files
-            .Select(file => new { File = file, BValue = TryGetDiffusionBValue(file.Dataset) })
-            .ToList();
-
-        if (withBValues.Any(x => x.BValue == null))
-            return [];
-
-        var bValueGroups = withBValues
-            .GroupBy(x => NormalizeBValue(x.BValue!.Value))
-            .OrderBy(g => g.Key)
-            .ToList();
-
-        if (bValueGroups.Count <= 1)
-            return [];
-
-        return bValueGroups
-            .Select(g => new DiffusionBValueSeries(
-                g.Key,
-                new SeriesGroup
-                {
-                    StudyInstanceUid = group.StudyInstanceUid,
-                    SeriesInstanceUid = DicomUID.Generate().UID,
-                    Modality = group.Modality,
-                    Files = g.Select(x => x.File).ToList(),
-                    ExcludedFileCount = group.ExcludedFileCount
-                }))
-            .ToList();
-    }
-
-    public static double? TryGetDiffusionBValue(DicomDataset ds)
-    {
-        if (TryGetDouble(ds, DicomTag.DiffusionBValue, out double topLevelBValue))
-            return topLevelBValue;
-
-        if (ds.Contains(DicomTag.MRDiffusionSequence))
-        {
-            var diffusionSequence = ds.GetSequence(DicomTag.MRDiffusionSequence);
-            foreach (var item in diffusionSequence.Items)
-            {
-                if (TryGetDouble(item, DicomTag.DiffusionBValue, out double nestedBValue))
-                    return nestedBValue;
-            }
-        }
-
-        return null;
-    }
-
-    public static bool HasMultipleDiffusionBValues(SeriesGroup group)
-    {
-        var values = new HashSet<int>();
-        foreach (var file in group.Files)
-        {
-            var bValue = TryGetDiffusionBValue(file.Dataset);
-            if (bValue == null)
-                return false;
-            values.Add(NormalizeBValue(bValue.Value));
-            if (values.Count > 1)
-                return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryGetDouble(DicomDataset ds, DicomTag tag, out double value)
-    {
-        value = 0;
-        if (!ds.Contains(tag)) return false;
-
-        try
-        {
-            value = ds.GetSingleValue<double>(tag);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static int NormalizeBValue(double bValue)
-        => (int)Math.Round(bValue, MidpointRounding.AwayFromZero);
 
     // Anonymization now lives in SeriesDeidentifier, which keeps UID/patient-ID/date-shift
     // state consistent across an entire batch run instead of anonymizing each file in

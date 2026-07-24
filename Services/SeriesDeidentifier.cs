@@ -99,9 +99,16 @@ public sealed class SeriesDeidentifier
         ds.Remove(DicomTag.ContentTime);
         ds.Remove(DicomTag.StudyDescription);
 
-        // ── Private/vendor tags: not part of any public IOD, frequently carry
-        //    device- or site-identifying information, and are unconditionally removed. ──
-        ds.Remove(item => item.Tag.IsPrivate);
+        // ── Private/vendor tags: removed unless they represent DTI / MR Diffusion parameters
+        //    (Siemens 0019/0029, GE 0019/0043, Philips 2001/2005) required by Brainlab Fibertracking. ──
+        ds.Remove(item =>
+        {
+            if (!item.Tag.IsPrivate) return false;
+            ushort group = item.Tag.Group;
+            if (group == 0x0019 || group == 0x0029 || group == 0x0043 || group == 0x2001 || group == 0x2005)
+                return false; // Preserve DTI diffusion shadow tags
+            return true;
+        });
     }
 
     private string RemapPatientId(string originalPatientId)

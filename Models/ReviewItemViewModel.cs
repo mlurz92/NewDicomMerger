@@ -17,10 +17,15 @@ public class ReviewItemViewModel : INotifyPropertyChanged
     public string OriginalSeriesName { get; init; } = string.Empty;
     public string Modality { get; init; } = string.Empty;
     public int FrameCount { get; init; }
+    public string BValueText { get; init; } = string.Empty;
 
     /// <summary>Files excluded from this series during grouping due to inconsistent
     /// pixel properties — see SeriesGroup.ExcludedFileCount / DicomScanner.GroupAndSort.</summary>
     public int ExcludedFileCount { get; init; }
+    public bool IsInputMultiFrame => OriginalGroup?.Files.Any(f => f.IsMultiFrame) == true;
+    public string FormatBadge => IsInputMultiFrame
+        ? $"📦 Multi-Frame (3D/4D Volume, {FrameCount} Frames)"
+        : $"📄 Single-Frame ({FrameCount} Dateien)";
     public bool HasWarning => ExcludedFileCount > 0;
     public string StatusText => HasWarning ? $"⚠ {ExcludedFileCount} ausgeschlossen" : "✓ OK";
     public string StatusTooltip => HasWarning

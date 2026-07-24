@@ -1,24 +1,249 @@
-    SpacingBetweenSlices: 2,0000 mm
-    SpacingBetweenSlices: 3,0000 mm
-    SpacingBetweenSlices: 3,0000 mm
-    SpacingBetweenSlices: 3,0000 mm
-    Größe: 512×512 × 97 Frames, 16 Bit, 1ch, CT
-    SOP-Klasse: Enhanced CT Image Storage
-✓ Richter_Werner-Hals WF ven_s 2.0 ax I41s-2026-07-02.dcm
-    Größe: 512×512 × 116 Frames, 16 Bit, 1ch, CT
-    SOP-Klasse: Enhanced CT Image Storage
-✓ Richter_Werner-Thorax 3.0 ax I80s-2026-07-02.dcm
-    Größe: 512×512 × 166 Frames, 16 Bit, 1ch, CT
-    SOP-Klasse: Enhanced CT Image Storage
-✓ Richter_Werner-Tho_Ob WF 3.0 ax I41s-2026-07-02.dcm
-    Größe: 512×512 × 166 Frames, 16 Bit, 1ch, CT
-    SOP-Klasse: Enhanced CT Image Storage
-✓ Richter_Werner-Tho_Ob KF 3.0 ax I80s-2026-07-02.dcm
-
-══════════════════════════════════════════════════════════════
- ERSTELLE 7-ZIP ARCHIV (STUFE 9-ULTRA)
-══════════════════════════════════════════════════════════════
-Führe 7-Zip Kompression (Stufe 9-Ultra) aus für Richter_Werner.zip...
-✓ 7-Zip Ultra (Stufe 9) ZIP erfolgreich erstellt: Richter_Werner.zip
-Bereinige umgewandelte Dateien im Zielordner...
-✓ Zielordner bereinigt: Nur Richter_Werner.zip verbleibt im Zielordner.
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 408×356 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+    [Brainlab DTI] Speicherformat auf 16-Bit DICOM angepasst.
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_TRACEW-2026-03-20_1.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 512×356 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_TENSOR_B0-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_FA-2026-03-20_1.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 408×512 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_mprage_tra_p2_iso-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_ADC-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t2_tse_tra_512_3mm-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t2_swi_tra_p2_SWI-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t2_tse_cor_Temporal_3mm-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t2_swi_tra_p2_Pha-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-3D_T2_Dark-Fluid_tra_MPR_Cor-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t2_swi_tra_p2_SWI_mIP-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t2_swi_tra_p2_Mag-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_ColFA-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-3D_T2_Dark-Fluid_tra_MPR_Sag-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-3D_T2_Dark-Fluid_tra-2026-03-20_1.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_TENSOR_B0-2026-03-20_2.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 192×256 (Gefordert: Quadratische Matrix).
+✓ Baskov_Richard-ep2d_diff_mddw_s4_AP_TENSOR_B0-2026-03-20.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (72 Frames): Baskov_Richard-t2_swi_tra_p2_SWI-2026-03-20_2.dcm
+✓ Multi-Frame Volume 2/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_2.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (72 Frames): Baskov_Richard-t2_swi_tra_p2_Pha-2026-03-20_2.dcm
+✓ Baskov_Richard-t2_swi_tra_p2_SWI-2026-03-20.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (65 Frames): Baskov_Richard-t2_swi_tra_p2_SWI_mIP-2026-03-20_2.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (72 Frames): Baskov_Richard-t2_swi_tra_p2_Mag-2026-03-20_2.dcm
+✓ Baskov_Richard-t2_swi_tra_p2_Pha-2026-03-20.dcm
+✓ Baskov_Richard-t2_swi_tra_p2_SWI_mIP-2026-03-20.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_tse_tir_cor_p2_3mm-2026-03-20_1.dcm
+✓ Baskov_Richard-t2_swi_tra_p2_Mag-2026-03-20.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (208 Frames): Baskov_Richard-t1_mprage_tra_p2_iso-2026-03-20_2.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 408×512 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 2/2 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_TRACEW-2026-03-20_2.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_ND-2026-03-20_1.dcm
+    [Brainlab DTI] Speicherformat auf 16-Bit DICOM angepasst.
+✓ Baskov_Richard-t1_mprage_tra_p2_iso-2026-03-20.dcm
+✓ Multi-Frame Volume 3/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_3.dcm
+✓ Baskov_Richard-ep2d_diff_mddw_s4_AP_TRACEW-2026-03-20.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 2/2 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_FA-2026-03-20_2.dcm
+✓ Multi-Frame Volume 1/3 verarbeitet (2 Frames): Baskov_Richard-ep2d_diff_4scan_trace_p2_s2_2mm_TRACEW-2026-03-20_1.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_ADC-2026-03-20_2.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-ep2d_diff_4scan_trace_p2_s2_2mm_ADC-2026-03-20_1.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_MPR_Sag-2026-03-20_1.dcm
+✓ Baskov_Richard-ep2d_diff_mddw_s4_AP_FA-2026-03-20.dcm
+✓ Baskov_Richard-ep2d_diff_mddw_s4_AP_ADC-2026-03-20.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 4/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_4.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (39 Frames): Baskov_Richard-t2_tse_tra_512_3mm-2026-03-20_2.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (48 Frames): Baskov_Richard-t2_tse_cor_Temporal_3mm-2026-03-20_2.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_MPR_Cor-2026-03-20_1.dcm
+✓ Baskov_Richard-t2_tse_tra_512_3mm-2026-03-20.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP_ColFA-2026-03-20_2.dcm
+✓ Baskov_Richard-t2_tse_cor_Temporal_3mm-2026-03-20.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_KM_MPR_Sag-2026-03-20_1.dcm
+✓ Multi-Frame Volume 2/3 verarbeitet (60 Frames): Baskov_Richard-ep2d_diff_4scan_trace_p2_s2_2mm_TRACEW-2026-03-20_2.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (60 Frames): Baskov_Richard-ep2d_diff_4scan_trace_p2_s2_2mm_ADC-2026-03-20_2.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+✓ Baskov_Richard-ep2d_diff_mddw_s4_AP_ColFA-2026-03-20.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (49 Frames): Baskov_Richard-t1_tse_tir_cor_p2_3mm-2026-03-20_2.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_KM-2026-03-20_1.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (160 Frames): Baskov_Richard-3D_T2_Dark-Fluid_tra-2026-03-20_2.dcm
+✓ Multi-Frame Volume 5/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_5.dcm
+✓ Baskov_Richard-ep2d_diff_4scan_trace_p2_s2_2mm_ADC-2026-03-20.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (208 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_ND-2026-03-20_2.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_KM_MPR_Cor-2026-03-20_1.dcm
+✓ Baskov_Richard-t1_tse_tir_cor_p2_3mm-2026-03-20.dcm
+✓ Baskov_Richard-3D_T2_Dark-Fluid_tra-2026-03-20.dcm
+✓ Multi-Frame Volume 1/2 verarbeitet (1 Frames): Baskov_Richard-ep2d_diff_mddw_s4_topup_PA-2026-03-20_1.dcm
+✓ Baskov_Richard-t1_mprage_tra_p2_iso_ND-2026-03-20.dcm
+✓ Multi-Frame Volume 3/3 verarbeitet (60 Frames): Baskov_Richard-ep2d_diff_4scan_trace_p2_s2_2mm_TRACEW-2026-03-20_3.dcm
+✓ Baskov_Richard-ep2d_diff_4scan_trace_p2_s2_2mm_TRACEW-2026-03-20.dcm
+✓ Multi-Frame Volume 6/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_6.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_topup_PA-2026-03-20_2.dcm
+✓ Baskov_Richard-ep2d_diff_mddw_s4_topup_PA-2026-03-20.dcm
+✓ Multi-Frame Volume 7/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_7.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (208 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_KM-2026-03-20_2.dcm
+✓ Baskov_Richard-t1_mprage_tra_p2_iso_KM-2026-03-20.dcm
+✓ Multi-Frame Volume 8/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_8.dcm
+✓ Multi-Frame Volume 9/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_9.dcm
+✓ Multi-Frame Volume 10/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_10.dcm
+✓ Multi-Frame Volume 11/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_11.dcm
+✓ Multi-Frame Volume 12/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_12.dcm
+✓ Multi-Frame Volume 13/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_13.dcm
+✓ Multi-Frame Volume 14/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_14.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 512×356 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 15/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_15.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 408×356 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 16/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_16.dcm
+✓ Multi-Frame Volume 17/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_17.dcm
+✓ Multi-Frame Volume 18/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_18.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 19/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_19.dcm
+✓ Multi-Frame Volume 20/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_20.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 21/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_21.dcm
+WARN: [Brainlab DTI Empfehlung] Matrixgröße ist nicht quadratisch: 256×208 (Gefordert: Quadratische Matrix).
+✓ Multi-Frame Volume 22/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_22.dcm
+✓ Multi-Frame Volume 23/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_23.dcm
+✓ Multi-Frame Volume 24/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_24.dcm
+✓ Multi-Frame Volume 25/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_25.dcm
+✓ Multi-Frame Volume 26/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_26.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (300 Frames): Baskov_Richard-3D_T2_Dark-Fluid_tra_MPR_Cor-2026-03-20_2.dcm
+✓ Multi-Frame Volume 27/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_27.dcm
+✓ Baskov_Richard-3D_T2_Dark-Fluid_tra_MPR_Cor-2026-03-20.dcm
+✓ Multi-Frame Volume 28/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_28.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (300 Frames): Baskov_Richard-3D_T2_Dark-Fluid_tra_MPR_Sag-2026-03-20_2.dcm
+✓ Baskov_Richard-3D_T2_Dark-Fluid_tra_MPR_Sag-2026-03-20.dcm
+✓ Multi-Frame Volume 29/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_29.dcm
+✓ Multi-Frame Volume 30/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_30.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (256 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_KM_MPR_Sag-2026-03-20_2.dcm
+✓ Baskov_Richard-t1_mprage_tra_p2_iso_KM_MPR_Sag-2026-03-20.dcm
+✓ Multi-Frame Volume 31/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_31.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (256 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_MPR_Cor-2026-03-20_2.dcm
+✓ Baskov_Richard-t1_mprage_tra_p2_iso_MPR_Cor-2026-03-20.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (256 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_KM_MPR_Cor-2026-03-20_2.dcm
+✓ Baskov_Richard-t1_mprage_tra_p2_iso_KM_MPR_Cor-2026-03-20.dcm
+✓ Multi-Frame Volume 32/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_32.dcm
+✓ Multi-Frame Volume 2/2 verarbeitet (256 Frames): Baskov_Richard-t1_mprage_tra_p2_iso_MPR_Sag-2026-03-20_2.dcm
+✓ Baskov_Richard-t1_mprage_tra_p2_iso_MPR_Sag-2026-03-20.dcm
+✓ Multi-Frame Volume 33/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_33.dcm
+✓ Multi-Frame Volume 34/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_34.dcm
+✓ Multi-Frame Volume 35/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_35.dcm
+✓ Multi-Frame Volume 36/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_36.dcm
+✓ Multi-Frame Volume 37/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_37.dcm
+✓ Multi-Frame Volume 38/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_38.dcm
+✓ Multi-Frame Volume 39/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_39.dcm
+✓ Multi-Frame Volume 40/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_40.dcm
+✓ Multi-Frame Volume 41/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_41.dcm
+✓ Multi-Frame Volume 42/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_42.dcm
+✓ Multi-Frame Volume 43/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_43.dcm
+✓ Multi-Frame Volume 44/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_44.dcm
+✓ Multi-Frame Volume 45/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_45.dcm
+✓ Multi-Frame Volume 46/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_46.dcm
+✓ Multi-Frame Volume 47/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_47.dcm
+✓ Multi-Frame Volume 48/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_48.dcm
+✓ Multi-Frame Volume 49/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_49.dcm
+✓ Multi-Frame Volume 50/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_50.dcm
+✓ Multi-Frame Volume 51/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_51.dcm
+✓ Multi-Frame Volume 52/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_52.dcm
+✓ Multi-Frame Volume 53/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_53.dcm
+✓ Multi-Frame Volume 54/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_54.dcm
+✓ Multi-Frame Volume 55/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_55.dcm
+✓ Multi-Frame Volume 56/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_56.dcm
+✓ Multi-Frame Volume 57/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_57.dcm
+✓ Multi-Frame Volume 58/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_58.dcm
+✓ Multi-Frame Volume 59/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_59.dcm
+✓ Multi-Frame Volume 60/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_60.dcm
+✓ Multi-Frame Volume 61/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_61.dcm
+✓ Multi-Frame Volume 62/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_62.dcm
+✓ Multi-Frame Volume 63/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_63.dcm
+✓ Multi-Frame Volume 64/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_64.dcm
+✓ Multi-Frame Volume 65/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_65.dcm
+✓ Multi-Frame Volume 66/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_66.dcm
+✓ Multi-Frame Volume 67/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_67.dcm
+✓ Multi-Frame Volume 68/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_68.dcm
+✓ Multi-Frame Volume 69/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_69.dcm
+✓ Multi-Frame Volume 70/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_70.dcm
+✓ Multi-Frame Volume 71/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_71.dcm
+✓ Multi-Frame Volume 72/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_72.dcm
+✓ Multi-Frame Volume 73/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_73.dcm
+✓ Multi-Frame Volume 74/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_74.dcm
+✓ Multi-Frame Volume 75/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_75.dcm
+✓ Multi-Frame Volume 76/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_76.dcm
+✓ Multi-Frame Volume 77/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_77.dcm
+✓ Multi-Frame Volume 78/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_78.dcm
+✓ Multi-Frame Volume 79/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_79.dcm
+✓ Multi-Frame Volume 80/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_80.dcm
+✓ Multi-Frame Volume 81/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_81.dcm
+✓ Multi-Frame Volume 82/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_82.dcm
+✓ Multi-Frame Volume 83/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_83.dcm
+✓ Multi-Frame Volume 84/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_84.dcm
+✓ Multi-Frame Volume 85/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_85.dcm
+✓ Multi-Frame Volume 86/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_86.dcm
+✓ Multi-Frame Volume 87/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_87.dcm
+✓ Multi-Frame Volume 88/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_88.dcm
+✓ Multi-Frame Volume 89/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_89.dcm
+✓ Multi-Frame Volume 90/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_90.dcm
+✓ Multi-Frame Volume 91/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_91.dcm
+✓ Multi-Frame Volume 92/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_92.dcm
+✓ Multi-Frame Volume 93/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_93.dcm
+✓ Multi-Frame Volume 94/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_94.dcm
+✓ Multi-Frame Volume 95/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_95.dcm
+✓ Multi-Frame Volume 96/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_96.dcm
+✓ Multi-Frame Volume 97/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_97.dcm
+✓ Multi-Frame Volume 98/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_98.dcm
+✓ Multi-Frame Volume 99/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_99.dcm
+✓ Multi-Frame Volume 100/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_100.dcm
+✓ Multi-Frame Volume 101/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_101.dcm
+✓ Multi-Frame Volume 102/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_102.dcm
+✓ Multi-Frame Volume 103/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_103.dcm
+✓ Multi-Frame Volume 104/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_104.dcm
+✓ Multi-Frame Volume 105/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_105.dcm
+✓ Multi-Frame Volume 106/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_106.dcm
+✓ Multi-Frame Volume 107/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_107.dcm
+✓ Multi-Frame Volume 108/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_108.dcm
+✓ Multi-Frame Volume 109/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_109.dcm
+✓ Multi-Frame Volume 110/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_110.dcm
+✓ Multi-Frame Volume 111/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_111.dcm
+✓ Multi-Frame Volume 112/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_112.dcm
+✓ Multi-Frame Volume 113/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_113.dcm
+✓ Multi-Frame Volume 114/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_114.dcm
+✓ Multi-Frame Volume 115/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_115.dcm
+✓ Multi-Frame Volume 116/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_116.dcm
+✓ Multi-Frame Volume 117/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_117.dcm
+✓ Multi-Frame Volume 118/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_118.dcm
+✓ Multi-Frame Volume 119/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_119.dcm
+✓ Multi-Frame Volume 120/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_120.dcm
+✓ Multi-Frame Volume 121/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_121.dcm
+✓ Multi-Frame Volume 122/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_122.dcm
+✓ Multi-Frame Volume 123/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_123.dcm
+✓ Multi-Frame Volume 124/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_124.dcm
+✓ Multi-Frame Volume 125/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_125.dcm
+✓ Multi-Frame Volume 126/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_126.dcm
+✓ Multi-Frame Volume 127/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_127.dcm
+✓ Multi-Frame Volume 128/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_128.dcm
+✓ Multi-Frame Volume 129/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_129.dcm
+✓ Multi-Frame Volume 130/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_130.dcm
+✓ Multi-Frame Volume 131/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_131.dcm
+✓ Multi-Frame Volume 132/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_132.dcm
+✓ Multi-Frame Volume 133/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_133.dcm
+✓ Multi-Frame Volume 134/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_134.dcm
+✓ Multi-Frame Volume 135/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_135.dcm
+✓ Multi-Frame Volume 136/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_136.dcm
+✓ Multi-Frame Volume 137/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_137.dcm
+✓ Multi-Frame Volume 138/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_138.dcm
+✓ Multi-Frame Volume 139/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_139.dcm
+✓ Multi-Frame Volume 140/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_140.dcm
+✓ Multi-Frame Volume 141/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_141.dcm
+✓ Multi-Frame Volume 142/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_142.dcm
+✓ Multi-Frame Volume 143/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_143.dcm
+✓ Multi-Frame Volume 144/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_144.dcm
+✓ Multi-Frame Volume 145/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_145.dcm
+✓ Multi-Frame Volume 146/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_146.dcm
+✓ Multi-Frame Volume 147/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_147.dcm
+✓ Multi-Frame Volume 148/148 verarbeitet (92 Frames): Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20_148.dcm
+✓ Baskov_Richard-ep2d_diff_mddw_s4_AP-2026-03-20.dcm
