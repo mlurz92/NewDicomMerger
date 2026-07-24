@@ -21,6 +21,8 @@ namespace NewDicomMerger.Services;
 ///   • Patient/study tags are copied via direct DicomItem references, never via DicomTag.Parse("name").
 ///   • Output filenames include a series-index AND a hash of the SeriesInstanceUID for uniqueness.
 /// </summary>
+public sealed record DiffusionBValueSeries(int BValue, SeriesGroup Group);
+
 public sealed class FrameMerger
 {
     private readonly Action<string> _log;
@@ -235,6 +237,90 @@ public sealed class FrameMerger
              $"{bitsAllocated} Bit, {samplesPerPixel}ch, {first.Modality}");
         _log($"    SOP-Klasse: {SopClassDisplayName(sopClassUid)}");
     }
+
+    public static IReadOnlyList<DiffusionBValueSeries> SplitByDiffusionBValue(SeriesGroup group)
+    {
+        var withBValues = group.Files
+            .Select(file => new { File = file, BValue = TryGetDiffusionBValue(file.Dataset) })
+            .ToList();
+
+        if (withBValues.Any(x => x.BValue == null))
+            return [];
+
+        var bValueGroups = withBValues
+            .GroupBy(x => NormalizeBValue(x.BValue!.Value))
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        if (bValueGroups.Count <= 1)
+            return [];
+
+        return bValueGroups
+            .Select(g => new DiffusionBValueSeries(
+                g.Key,
+                new SeriesGroup
+                {
+                    StudyInstanceUid = group.StudyInstanceUid,
+                    SeriesInstanceUid = DicomUID.Generate().UID,
+                    Modality = group.Modality,
+                    Files = g.Select(x => x.File).ToList(),
+                    ExcludedFileCount = group.ExcludedFileCount
+                }))
+            .ToList();
+    }
+
+    public static double? TryGetDiffusionBValue(DicomDataset ds)
+    {
+        if (TryGetDouble(ds, DicomTag.DiffusionBValue, out double topLevelBValue))
+            return topLevelBValue;
+
+        if (ds.Contains(DicomTag.MRDiffusionSequence))
+        {
+            var diffusionSequence = ds.GetSequence(DicomTag.MRDiffusionSequence);
+            foreach (var item in diffusionSequence.Items)
+            {
+                if (TryGetDouble(item, DicomTag.DiffusionBValue, out double nestedBValue))
+                    return nestedBValue;
+            }
+        }
+
+        return null;
+    }
+
+    public static bool HasMultipleDiffusionBValues(SeriesGroup group)
+    {
+        var values = new HashSet<int>();
+        foreach (var file in group.Files)
+        {
+            var bValue = TryGetDiffusionBValue(file.Dataset);
+            if (bValue == null)
+                return false;
+            values.Add(NormalizeBValue(bValue.Value));
+            if (values.Count > 1)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetDouble(DicomDataset ds, DicomTag tag, out double value)
+    {
+        value = 0;
+        if (!ds.Contains(tag)) return false;
+
+        try
+        {
+            value = ds.GetSingleValue<double>(tag);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static int NormalizeBValue(double bValue)
+        => (int)Math.Round(bValue, MidpointRounding.AwayFromZero);
 
     // Anonymization now lives in SeriesDeidentifier, which keeps UID/patient-ID/date-shift
     // state consistent across an entire batch run instead of anonymizing each file in
