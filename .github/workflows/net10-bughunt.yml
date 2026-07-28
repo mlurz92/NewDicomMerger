@@ -1,0 +1,186 @@
+name: .NET 10 BugHunt
+
+on:
+  push:
+    branches:
+      - agent/json-audit-zip-fix-net10-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: net10-bughunt-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bughunt:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 1
+
+      - name: Install .NET SDK 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Reconstruct effective reviewed source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item 'bin', 'obj', 'publish', 'artifacts' -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force 'artifacts\reports' | Out-Null
+
+          $parts = Get-ChildItem '.build-overlay\part_*.b64' | Sort-Object Name
+          if ($parts.Count -ne 8) { throw "Expected 8 overlay parts, found $($parts.Count)." }
+          $base64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          $base64 = $base64 -replace '\s', ''
+          $zipPath = Join-Path $env:RUNNER_TEMP 'reviewed-final-files.zip'
+          [IO.File]::WriteAllBytes($zipPath, [Convert]::FromBase64String($base64))
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $PWD -Force
+
+          $supplementParts = Get-ChildItem '.build-overlay-supplement\part_*.b64' -ErrorAction SilentlyContinue | Sort-Object Name
+          if ($supplementParts.Count -gt 0) {
+            $supplementBase64 = ($supplementParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+            $supplementBase64 = $supplementBase64 -replace '\s', ''
+            $supplementZip = Join-Path $env:RUNNER_TEMP 'reviewed-supplement.zip'
+            [IO.File]::WriteAllBytes($supplementZip, [Convert]::FromBase64String($supplementBase64))
+            Expand-Archive -LiteralPath $supplementZip -DestinationPath $PWD -Force
+          }
+
+          $inventory = Get-ChildItem -Recurse -File | Where-Object {
+            $_.FullName -notmatch '\\.git\\|\\bin\\|\\obj\\|\\artifacts\\|\\.build-overlay'
+          } | Sort-Object FullName | ForEach-Object {
+            [pscustomobject]@{
+              Path = [IO.Path]::GetRelativePath($PWD.Path, $_.FullName)
+              Bytes = $_.Length
+              SHA256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            }
+          }
+          $inventory | ConvertTo-Json -Depth 5 | Set-Content 'artifacts\reports\source-inventory.json' -Encoding utf8
+          $inventory | Export-Csv 'artifacts\reports\source-inventory.csv' -NoTypeInformation -Encoding utf8
+
+      - name: Restore dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet --info | Tee-Object -FilePath 'artifacts\reports\dotnet-info.txt'
+          dotnet restore NewDicomMerger.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore.log'
+
+      - name: Baseline Release build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true 2>&1 | Tee-Object -FilePath 'artifacts\reports\baseline-build.log'
+
+      - name: Maximum analyzer build
+        id: analyzer
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-all -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=false -flp:"logfile=artifacts\reports\analyzer-diagnostic.log;verbosity=diagnostic" 2>&1 | Tee-Object -FilePath 'artifacts\reports\analyzer-build.log'
+          exit $LASTEXITCODE
+
+      - name: Warnings-as-errors build
+        id: warnings
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-recommended -warnaserror 2>&1 | Tee-Object -FilePath 'artifacts\reports\warnings-as-errors.log'
+          exit $LASTEXITCODE
+
+      - name: Analyzer format verification
+        id: format
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet format analyzers NewDicomMerger.csproj --no-restore --verify-no-changes --severity info --report 'artifacts\reports\dotnet-format' 2>&1 | Tee-Object -FilePath 'artifacts\reports\dotnet-format.log'
+          exit $LASTEXITCODE
+
+      - name: Dependency vulnerability report
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet list NewDicomMerger.csproj package --vulnerable --include-transitive --format json | Set-Content 'artifacts\reports\vulnerable-packages.json' -Encoding utf8
+          dotnet list NewDicomMerger.csproj package --outdated --include-transitive --format json | Set-Content 'artifacts\reports\outdated-packages.json' -Encoding utf8
+
+      - name: Static risk scan
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $patterns = [ordered]@{
+            EmptyCatch = 'catch\s*(\([^)]*\))?\s*\{\s*\}'
+            AsyncVoid = 'async\s+void\s+'
+            SyncWait = '\.(Result|Wait\s*\()'
+            ThreadSleep = 'Thread\.Sleep\s*\('
+            FireAndForget = '_\s*=\s*[^;]+Async\s*\('
+            ProcessStart = 'Process\.Start\s*\('
+            FileDelete = 'File\.Delete\s*\('
+            DirectoryDelete = 'Directory\.Delete\s*\('
+            BroadCatch = 'catch\s*\(\s*Exception\b'
+            DateTimeNow = 'DateTime\.(Now|UtcNow)'
+            GuidNewGuid = 'Guid\.NewGuid\s*\('
+          }
+          $sources = Get-ChildItem -Recurse -File -Include *.cs | Where-Object { $_.FullName -notmatch '\\bin\\|\\obj\\|\\artifacts\\' }
+          $findings = foreach ($source in $sources) {
+            $lineNumber = 0
+            foreach ($line in Get-Content $source.FullName) {
+              $lineNumber++
+              foreach ($pattern in $patterns.GetEnumerator()) {
+                if ($line -match $pattern.Value) {
+                  [pscustomobject]@{
+                    Rule = $pattern.Key
+                    File = [IO.Path]::GetRelativePath($PWD.Path, $source.FullName)
+                    Line = $lineNumber
+                    Text = $line.Trim()
+                  }
+                }
+              }
+            }
+          }
+          $findings | Export-Csv 'artifacts\reports\static-risk-scan.csv' -NoTypeInformation -Encoding utf8
+          $findings | ConvertTo-Json -Depth 5 | Set-Content 'artifacts\reports\static-risk-scan.json' -Encoding utf8
+
+      - name: Publish and extended smoke test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish NewDicomMerger.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -p:ContinuousIntegrationBuild=true -o artifacts\publish 2>&1 | Tee-Object -FilePath 'artifacts\reports\publish.log'
+          $exe = Resolve-Path 'artifacts\publish\NewDicomMerger.exe'
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 15
+          if ($process.HasExited) { throw "Application exited unexpectedly with code $($process.ExitCode)." }
+          Stop-Process -Id $process.Id -Force
+          $process.WaitForExit()
+          Get-Item $exe | Select-Object FullName,Length,CreationTimeUtc,LastWriteTimeUtc | ConvertTo-Json | Set-Content 'artifacts\reports\published-executable.json' -Encoding utf8
+          Get-FileHash $exe -Algorithm SHA256 | ConvertTo-Json | Set-Content 'artifacts\reports\published-executable-hash.json' -Encoding utf8
+
+      - name: Package effective source and reports
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceStage = Join-Path $env:RUNNER_TEMP 'effective-source'
+          New-Item -ItemType Directory -Force $sourceStage | Out-Null
+          Get-ChildItem -Force | Where-Object { $_.Name -notin @('.git','bin','obj','artifacts','.build-overlay','.build-overlay-supplement') } | ForEach-Object {
+            Copy-Item $_.FullName -Destination $sourceStage -Recurse -Force
+          }
+          Compress-Archive -Path "$sourceStage\*" -DestinationPath 'artifacts\effective-source.zip' -CompressionLevel Optimal
+          Compress-Archive -Path 'artifacts\reports\*' -DestinationPath 'artifacts\bughunt-reports.zip' -CompressionLevel Optimal
+
+      - name: Upload BugHunt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewDicomMerger-net10-bughunt
+          path: |
+            artifacts/effective-source.zip
+            artifacts/bughunt-reports.zip
+            artifacts/reports/**
+          if-no-files-found: warn
+          retention-days: 30
