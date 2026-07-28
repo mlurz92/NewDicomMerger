@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/final-corrections-pr-base
+  pull_request:
+    branches:
+      - agent/final-corrections-pr-base
   workflow_dispatch:
 
 permissions:
@@ -18,9 +21,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout source
+      - name: Checkout source branch
         uses: actions/checkout@v4
         with:
+          ref: agent/final-corrections-pr-base
           fetch-depth: 1
 
       - name: Install .NET SDK 10
@@ -75,9 +79,11 @@ jobs:
           Stop-Process -Id $process.Id -Force
           $process.WaitForExit()
           $hash = Get-FileHash $exe.FullName -Algorithm SHA256
+          $sourceCommit = (git rev-parse HEAD).Trim()
           $hash.Hash + '  ' + $exe.Name | Set-Content 'artifacts\publish\SHA256SUMS.txt' -Encoding ascii
           [pscustomobject]@{
-            SourceCommit = $env:GITHUB_SHA
+            SourceBranch = 'agent/final-corrections-pr-base'
+            SourceCommit = $sourceCommit
             DotNetSdk = (dotnet --version)
             TargetFramework = 'net10.0-windows'
             RuntimeIdentifier = 'win-x64'
