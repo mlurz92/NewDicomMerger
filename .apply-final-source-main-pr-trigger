@@ -1,1 +1,1 @@
-Trigger final materialization from the validated build overlay, BugHunt patch, and final FrameMerger payload.
+Trigger final materialization after replacing the invalid overlay-size heuristic with structural validation.
