@@ -6,6 +6,13 @@ on:
       - main
     paths:
       - .apply-final-source-main-trigger
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - .apply-final-source-main-pr-trigger
   pull_request_target:
     types:
       - opened
@@ -20,7 +27,7 @@ permissions:
 
 jobs:
   materialize:
-    if: ${{ github.event_name == 'pull_request_target' || !contains(github.event.head_commit.message, '[apply-final]') }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' || !contains(github.event.head_commit.message, '[apply-final]') }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
