@@ -1,0 +1,111 @@
+name: .NET 10 Single EXE Build
+
+on:
+  push:
+    branches:
+      - agent/final-corrections-pr-base
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: net10-single-exe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install .NET SDK 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Record SDK and source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force 'artifacts\reports' | Out-Null
+          dotnet --info | Tee-Object -FilePath 'artifacts\reports\dotnet-info.txt'
+          git rev-parse HEAD | Set-Content 'artifacts\reports\source-commit.txt' -Encoding utf8
+          git status --short | Set-Content 'artifacts\reports\git-status.txt' -Encoding utf8
+
+      - name: Restore
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet restore NewDicomMerger.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore.log'
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-all -p:TreatWarningsAsErrors=false 2>&1 | Tee-Object -FilePath 'artifacts\reports\build.log'
+
+      - name: Publish self-contained Single EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item 'artifacts\publish' -Recurse -Force -ErrorAction SilentlyContinue
+          dotnet publish NewDicomMerger.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -p:ContinuousIntegrationBuild=true -o artifacts\publish 2>&1 | Tee-Object -FilePath 'artifacts\reports\publish.log'
+
+      - name: Validate executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(Get-ChildItem 'artifacts\publish' -File)
+          if ($files.Count -ne 1) { throw "Expected exactly one published file, found $($files.Count): $($files.Name -join ', ')" }
+          $exe = $files[0]
+          if ($exe.Name -ne 'NewDicomMerger.exe') { throw "Unexpected executable name: $($exe.Name)" }
+          if ($exe.Length -lt 50000000) { throw "Executable is unexpectedly small: $($exe.Length) bytes." }
+          $stream = [IO.File]::OpenRead($exe.FullName)
+          try {
+            if ($stream.ReadByte() -ne 0x4D -or $stream.ReadByte() -ne 0x5A) { throw 'Invalid Windows PE header.' }
+          } finally { $stream.Dispose() }
+          $process = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 20
+          if ($process.HasExited) { throw "Application exited unexpectedly with code $($process.ExitCode)." }
+          Stop-Process -Id $process.Id -Force
+          $process.WaitForExit()
+          $hash = Get-FileHash $exe.FullName -Algorithm SHA256
+          $hash.Hash + '  ' + $exe.Name | Set-Content 'artifacts\publish\SHA256SUMS.txt' -Encoding ascii
+          [pscustomobject]@{
+            SourceCommit = $env:GITHUB_SHA
+            DotNetSdk = (dotnet --version)
+            TargetFramework = 'net10.0-windows'
+            RuntimeIdentifier = 'win-x64'
+            Configuration = 'Release'
+            SelfContained = $true
+            PublishSingleFile = $true
+            FileName = $exe.Name
+            Length = $exe.Length
+            SHA256 = $hash.Hash
+            BuiltAtUtc = [DateTime]::UtcNow.ToString('O')
+          } | ConvertTo-Json | Set-Content 'artifacts\publish\BUILD-MANIFEST.json' -Encoding utf8
+
+      - name: Package output
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Compress-Archive -Path 'artifacts\publish\NewDicomMerger.exe','artifacts\publish\SHA256SUMS.txt','artifacts\publish\BUILD-MANIFEST.json' -DestinationPath 'artifacts\NewDicomMerger-net10-win-x64-single-exe.zip' -CompressionLevel Optimal
+          Get-FileHash 'artifacts\NewDicomMerger-net10-win-x64-single-exe.zip' -Algorithm SHA256 | ConvertTo-Json | Set-Content 'artifacts\reports\package-hash.json' -Encoding utf8
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewDicomMerger-net10-win-x64-single-exe
+          path: |
+            artifacts/NewDicomMerger-net10-win-x64-single-exe.zip
+            artifacts/publish/NewDicomMerger.exe
+            artifacts/publish/SHA256SUMS.txt
+            artifacts/publish/BUILD-MANIFEST.json
+            artifacts/reports/**
+          if-no-files-found: error
+          retention-days: 30
