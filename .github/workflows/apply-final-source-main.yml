@@ -40,7 +40,48 @@ jobs:
 
       - name: Materialize and verify final source
         shell: pwsh
-        run: ./scripts/materialize-final-source.ps1
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try {
+            ./scripts/materialize-final-source.ps1
+          } catch {
+            $_ | Format-List * -Force | Out-String | Set-Content materialize-error.txt -Encoding utf8
+            $critical = @(
+              'App.xaml.cs',
+              'MainWindow.xaml.cs',
+              'Services/BatchReportGenerator.cs',
+              'Services/BatchReportWriter.cs',
+              'Services/DicomDirWriter.cs',
+              'Services/DicomScanner.cs',
+              'Services/DiffusionBValueHelper.cs',
+              'Services/FrameMerger.cs',
+              'Services/FrameSplitter.cs',
+              'Services/NiftiConverter.cs',
+              'Services/SeriesDeidentifier.cs',
+              'Services/SevenZipHelper.cs'
+            )
+            $critical | ForEach-Object {
+              if (Test-Path $_ -PathType Leaf) {
+                [pscustomobject]@{
+                  Path = $_
+                  Length = (Get-Item $_).Length
+                  SHA256 = (Get-FileHash $_ -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+              }
+            } | Export-Csv materialize-hashes.csv -NoTypeInformation -Encoding utf8
+            throw
+          }
+
+      - name: Upload materialization diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-source-materialization-diagnostics
+          path: |
+            materialize-error.txt
+            materialize-hashes.csv
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Commit applied source to main
         shell: pwsh
