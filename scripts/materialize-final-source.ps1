@@ -58,6 +58,37 @@ foreach ($relativePath in $productionFiles) {
   Copy-Item -LiteralPath $source -Destination $destination -Force
 }
 
+$expectedFrameHash = '6caa2ac2a163d21599b47b99322b70574b6fc3244390b665764a992b6fe2e82e'
+$currentFrameHash = (Get-FileHash -LiteralPath 'Services/FrameMerger.cs' -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($currentFrameHash -ne $expectedFrameHash) {
+  $frameApplied = $false
+  foreach ($directory in @('.bughunt-frame-v2', '.bughunt-frame')) {
+    if (-not (Test-Path $directory -PathType Container)) { continue }
+    $frameParts = @(Get-ChildItem "$directory/part_*.b64" -File | Sort-Object Name)
+    if ($frameParts.Count -eq 0) { continue }
+    $frameBase64 = (($frameParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s', ''
+    try { $compressedFrame = [Convert]::FromBase64String($frameBase64) } catch { continue }
+    $candidatePath = Join-Path $env:RUNNER_TEMP ((Split-Path $directory -Leaf) + '.cs')
+    try {
+      $input = [IO.MemoryStream]::new($compressedFrame)
+      try {
+        $gzip = [IO.Compression.GZipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+        try {
+          $output = [IO.File]::Create($candidatePath)
+          try { $gzip.CopyTo($output) } finally { $output.Dispose() }
+        } finally { $gzip.Dispose() }
+      } finally { $input.Dispose() }
+    } catch { continue }
+    $candidateHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($candidateHash -eq $expectedFrameHash) {
+      Copy-Item -LiteralPath $candidatePath -Destination 'Services/FrameMerger.cs' -Force
+      $frameApplied = $true
+      break
+    }
+  }
+  if (-not $frameApplied) { throw "Final FrameMerger payload with expected SHA-256 was not found. Overlay hash: $currentFrameHash" }
+}
+
 $expectedHashes = [ordered]@{
   'App.xaml.cs' = 'ac0cb274748135530680b379e53038858ffc169cec91dec5581b8f1c8e29bfd7'
   'MainWindow.xaml.cs' = 'fb2d8363a798eed6ba03306e228d70f4aec26e84106c044e63adbe674e9b194c'
