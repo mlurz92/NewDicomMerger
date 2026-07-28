@@ -1,1 +1,1 @@
-Trigger final materialization with output-file SHA-256 verification replacing stale payload-hash verification.
+Trigger final materialization and upload the raw BugHunt payloads for exact compression-format diagnosis.
