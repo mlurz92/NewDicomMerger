@@ -1,9 +1,6 @@
 name: .NET 10 BugHunt
 
 on:
-  push:
-    branches:
-      - agent/json-audit-zip-fix-net10-build
   pull_request:
   workflow_dispatch:
 
@@ -38,22 +35,13 @@ jobs:
           Remove-Item 'bin', 'obj', 'publish', 'artifacts' -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force 'artifacts\reports' | Out-Null
 
-          $parts = Get-ChildItem '.build-overlay\part_*.b64' | Sort-Object Name
+          $parts = @(Get-ChildItem '.build-overlay\part_*.b64' | Sort-Object Name)
           if ($parts.Count -ne 8) { throw "Expected 8 overlay parts, found $($parts.Count)." }
           $base64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
           $base64 = $base64 -replace '\s', ''
           $zipPath = Join-Path $env:RUNNER_TEMP 'reviewed-final-files.zip'
           [IO.File]::WriteAllBytes($zipPath, [Convert]::FromBase64String($base64))
           Expand-Archive -LiteralPath $zipPath -DestinationPath $PWD -Force
-
-          $supplementParts = Get-ChildItem '.build-overlay-supplement\part_*.b64' -ErrorAction SilentlyContinue | Sort-Object Name
-          if ($supplementParts.Count -gt 0) {
-            $supplementBase64 = ($supplementParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
-            $supplementBase64 = $supplementBase64 -replace '\s', ''
-            $supplementZip = Join-Path $env:RUNNER_TEMP 'reviewed-supplement.zip'
-            [IO.File]::WriteAllBytes($supplementZip, [Convert]::FromBase64String($supplementBase64))
-            Expand-Archive -LiteralPath $supplementZip -DestinationPath $PWD -Force
-          }
 
           $inventory = Get-ChildItem -Recurse -File | Where-Object {
             $_.FullName -notmatch '\\.git\\|\\bin\\|\\obj\\|\\artifacts\\|\\.build-overlay'
