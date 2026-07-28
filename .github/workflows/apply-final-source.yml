@@ -1,0 +1,40 @@
+name: Apply Final Source
+
+on:
+  push:
+    branches:
+      - agent/final-corrections-pr-base
+    paths:
+      - .apply-final-source-trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: ${{ !contains(github.event.head_commit.message, '[apply-final]') }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/final-corrections-pr-base
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Materialize and verify final source
+        shell: pwsh
+        run: ./scripts/materialize-final-source.ps1
+
+      - name: Commit applied source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if (-not (git status --porcelain)) { throw 'No materialized source changes were produced.' }
+          git commit -m 'Apply final corrections to production source [apply-final]'
+          git push origin HEAD:agent/final-corrections-pr-base
