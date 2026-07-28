@@ -1,0 +1,209 @@
+name: .NET 10 Single EXE Build
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - agent/json-audit-zip-fix-net10-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: net10-single-exe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 1
+
+      - name: Install .NET SDK 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Apply reviewed final files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          Remove-Item 'bin', 'obj', 'publish', 'artifacts' -Recurse -Force -ErrorAction SilentlyContinue
+
+          $parts = Get-ChildItem '.build-overlay\part_*.b64' | Sort-Object Name
+          if ($parts.Count -ne 8) {
+            throw "Expected 8 overlay parts, found $($parts.Count)."
+          }
+
+          $base64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          $base64 = $base64 -replace '\s', ''
+          $zipPath = Join-Path $env:RUNNER_TEMP 'reviewed-final-files.zip'
+          [IO.File]::WriteAllBytes($zipPath, [Convert]::FromBase64String($base64))
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $PWD -Force
+
+          $expectedHashes = @{
+            'MainWindow.xaml.cs' = '4A969DBBAA8EBB83AFD9DEFB5CD3F204B0B4108BD9750623029965DF418D24A6'
+            'Services\SevenZipHelper.cs' = 'BDF6B3A04B8263BAEC8D491CF0AD0B00C9E31056D54E5FBF6C818DD6C93AC0ED'
+          }
+
+          foreach ($entry in $expectedHashes.GetEnumerator()) {
+            if (-not (Test-Path $entry.Key -PathType Leaf)) {
+              throw "Reviewed file missing after extraction: $($entry.Key)"
+            }
+
+            $actual = (Get-FileHash $entry.Key -Algorithm SHA256).Hash
+            if ($actual -ne $entry.Value) {
+              throw "SHA-256 mismatch for $($entry.Key): $actual"
+            }
+          }
+
+          $requiredFiles = @(
+            'NewDicomMerger.csproj',
+            'MainWindow.xaml',
+            'MainWindow.xaml.cs',
+            'Services\FrameMerger.cs',
+            'Services\SevenZipHelper.cs',
+            'Tools\7za.exe',
+            'Tools\dcm2niix.exe'
+          )
+
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path $file -PathType Leaf)) {
+              throw "Required build input missing: $file"
+            }
+          }
+
+          $project = [xml](Get-Content 'NewDicomMerger.csproj' -Raw)
+          $properties = $project.Project.PropertyGroup | Select-Object -First 1
+          if ($properties.TargetFramework -ne 'net10.0-windows') { throw 'TargetFramework is not net10.0-windows.' }
+          if ($properties.RuntimeIdentifier -ne 'win-x64') { throw 'RuntimeIdentifier is not win-x64.' }
+          if ($properties.PublishSingleFile -ne 'true') { throw 'PublishSingleFile is not true.' }
+          if ($properties.SelfContained -ne 'true') { throw 'SelfContained is not true.' }
+
+          if (-not (Select-String -Path 'MainWindow.xaml' -SimpleMatch 'x:Name="CheckBrainlabAuditReport"')) {
+            throw 'Audit JSON checkbox is missing from MainWindow.xaml.'
+          }
+          if (-not (Select-String -Path 'Services\FrameMerger.cs' -SimpleMatch 'bool generateAuditReport = true')) {
+            throw 'Optional audit-report parameter is missing from FrameMerger.cs.'
+          }
+          if (-not (Select-String -Path 'Services\FrameMerger.cs' -SimpleMatch 'if (generateAuditReport)')) {
+            throw 'Conditional audit-report generation is missing from FrameMerger.cs.'
+          }
+          if (-not (Select-String -Path 'MainWindow.xaml.cs' -SimpleMatch 'RunPostProcessingAsync')) {
+            throw 'Automatic post-processing integration is missing from MainWindow.xaml.cs.'
+          }
+          if (-not (Select-String -Path 'MainWindow.xaml.cs' -SimpleMatch 'CheckBrainlabAuditReport.IsChecked == true')) {
+            throw 'Audit JSON UI option is not wired in MainWindow.xaml.cs.'
+          }
+          if (-not (Select-String -Path 'Services\SevenZipHelper.cs' -SimpleMatch 'ValidateArchiveAsync')) {
+            throw 'Validated ZIP implementation is missing from SevenZipHelper.cs.'
+          }
+
+      - name: Report SDK
+        shell: pwsh
+        run: |
+          dotnet --info
+          dotnet --version
+
+      - name: Restore dependencies
+        run: dotnet restore NewDicomMerger.csproj -r win-x64
+
+      - name: Build Release
+        run: dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Publish self-contained single EXE
+        run: dotnet publish NewDicomMerger.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -p:ContinuousIntegrationBuild=true -o artifacts\publish
+
+      - name: Validate and smoke-test executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Resolve-Path 'artifacts\publish\NewDicomMerger.exe'
+          $info = Get-Item $exe
+
+          if ($info.Length -lt 10MB) {
+            throw "Executable is unexpectedly small: $($info.Length) bytes."
+          }
+
+          $stream = [IO.File]::OpenRead($exe)
+          try {
+            $first = $stream.ReadByte()
+            $second = $stream.ReadByte()
+          }
+          finally {
+            $stream.Dispose()
+          }
+
+          if ($first -ne 0x4D -or $second -ne 0x5A) {
+            throw 'Executable has no valid Windows PE MZ header.'
+          }
+
+          $unexpected = Get-ChildItem 'artifacts\publish' -File | Where-Object Name -ne 'NewDicomMerger.exe'
+          if ($unexpected) {
+            throw "Single-file publish contains unexpected files: $($unexpected.Name -join ', ')"
+          }
+
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($process.HasExited) {
+            if ($process.ExitCode -ne 0) {
+              throw "Smoke test exited with code $($process.ExitCode)."
+            }
+          }
+          else {
+            Stop-Process -Id $process.Id -Force
+            $process.WaitForExit()
+          }
+
+      - name: Package validated output
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packageDir = 'artifacts\package'
+          New-Item -ItemType Directory -Force $packageDir | Out-Null
+          Copy-Item 'artifacts\publish\NewDicomMerger.exe' "$packageDir\NewDicomMerger.exe"
+
+          $exe = Get-Item "$packageDir\NewDicomMerger.exe"
+          $hash = Get-FileHash $exe.FullName -Algorithm SHA256
+          "$($hash.Hash)  NewDicomMerger.exe" | Set-Content "$packageDir\SHA256SUMS.txt" -Encoding ascii
+
+          $sdkVersion = dotnet --version
+          @(
+            "BuildUtc=$([DateTime]::UtcNow.ToString('O'))",
+            "DotNetSdk=$sdkVersion",
+            'TargetFramework=net10.0-windows',
+            'RuntimeIdentifier=win-x64',
+            'Configuration=Release',
+            'SelfContained=true',
+            'PublishSingleFile=true',
+            'IncludeNativeLibrariesForSelfExtract=true',
+            "ExecutableBytes=$($exe.Length)",
+            "ExecutableSHA256=$($hash.Hash)",
+            "Commit=$env:GITHUB_SHA"
+          ) | Set-Content 'artifacts\BUILD-MANIFEST.txt' -Encoding utf8
+
+          Compress-Archive -Path "$packageDir\*" -DestinationPath 'artifacts\NewDicomMerger-net10-win-x64-single-exe.zip' -CompressionLevel Optimal
+
+          if (-not (Test-Path 'artifacts\NewDicomMerger-net10-win-x64-single-exe.zip' -PathType Leaf)) {
+            throw 'Final ZIP package was not created.'
+          }
+
+      - name: Upload validated package
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewDicomMerger-net10-win-x64-single-exe
+          path: |
+            artifacts/NewDicomMerger-net10-win-x64-single-exe.zip
+            artifacts/BUILD-MANIFEST.txt
+          if-no-files-found: error
+          retention-days: 30
