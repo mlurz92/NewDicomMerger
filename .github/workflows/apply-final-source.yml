@@ -6,6 +6,13 @@ on:
       - agent/final-corrections-pr-base
     paths:
       - .apply-final-source-trigger
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - .apply-final-source-pr-trigger
   workflow_dispatch:
 
 permissions:
@@ -13,7 +20,7 @@ permissions:
 
 jobs:
   materialize:
-    if: ${{ !contains(github.event.head_commit.message, '[apply-final]') }}
+    if: ${{ github.event_name == 'pull_request_target' || !contains(github.event.head_commit.message, '[apply-final]') }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
