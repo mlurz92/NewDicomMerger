@@ -80,7 +80,11 @@ jobs:
           path: |
             materialize-error.txt
             materialize-hashes.csv
+            .bughunt-fixes/**
+            .bughunt-frame/**
+            .bughunt-frame-v2/**
           if-no-files-found: ignore
+          include-hidden-files: true
           retention-days: 7
 
       - name: Commit applied source to main
