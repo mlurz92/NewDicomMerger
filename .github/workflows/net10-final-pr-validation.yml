@@ -1,0 +1,92 @@
+name: .NET 10 Final PR Validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: net10-final-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 1
+      - name: Install .NET SDK 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Apply final corrections
+        shell: pwsh
+        run: ./scripts/apply-final-corrections.ps1
+      - name: Restore application and harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet --info | Tee-Object -FilePath 'artifacts\reports\dotnet-info.txt'
+          dotnet restore NewDicomMerger.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore-app.log'
+          dotnet restore BugHuntHarness\BugHuntHarness.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore-harness.log'
+      - name: Build corrected application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-all -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=false 2>&1 | Tee-Object -FilePath 'artifacts\reports\analyzer-build.log'
+      - name: Run synthetic regression harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet run --project BugHuntHarness\BugHuntHarness.csproj -c Release -r win-x64 --no-restore 2>&1 | Tee-Object -FilePath 'artifacts\reports\regression-harness.log'
+      - name: Dependency vulnerability report
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet list NewDicomMerger.csproj package --vulnerable --include-transitive --format json | Set-Content 'artifacts\reports\vulnerable-packages.json' -Encoding utf8
+          dotnet list NewDicomMerger.csproj package --outdated --include-transitive --format json | Set-Content 'artifacts\reports\outdated-packages.json' -Encoding utf8
+      - name: Publish and smoke test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish NewDicomMerger.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -p:ContinuousIntegrationBuild=true -o artifacts\publish 2>&1 | Tee-Object -FilePath 'artifacts\reports\publish.log'
+          $exe = Resolve-Path 'artifacts\publish\NewDicomMerger.exe'
+          $unexpected = @(Get-ChildItem 'artifacts\publish' -File | Where-Object Name -ne 'NewDicomMerger.exe')
+          if ($unexpected.Count -ne 0) { throw "Unexpected publish files: $($unexpected.Name -join ', ')" }
+          $stream = [IO.File]::OpenRead($exe)
+          try { if ($stream.ReadByte() -ne 0x4D -or $stream.ReadByte() -ne 0x5A) { throw 'Invalid PE header.' } } finally { $stream.Dispose() }
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 20
+          if ($process.HasExited) { throw "Application exited unexpectedly with code $($process.ExitCode)." }
+          Stop-Process -Id $process.Id -Force
+          $process.WaitForExit()
+          Get-Item $exe | Select-Object FullName,Length,CreationTimeUtc,LastWriteTimeUtc | ConvertTo-Json | Set-Content 'artifacts\reports\published-executable.json' -Encoding utf8
+          Get-FileHash $exe -Algorithm SHA256 | ConvertTo-Json | Set-Content 'artifacts\reports\published-executable-hash.json' -Encoding utf8
+      - name: Package final output
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceStage = Join-Path $env:RUNNER_TEMP 'validated-source'
+          New-Item -ItemType Directory -Force $sourceStage | Out-Null
+          Get-ChildItem -Force | Where-Object { $_.Name -notin @('.git','bin','obj','artifacts','.build-overlay','.build-overlay-supplement','.bughunt-fixes','.bughunt-frame','.bughunt-frame-v2','.bughunt-hotfix','.final-source-overlay','.final-corrected-overlay') } | ForEach-Object { Copy-Item $_.FullName -Destination $sourceStage -Recurse -Force }
+          Compress-Archive -Path "$sourceStage\*" -DestinationPath 'artifacts\NewDicomMerger-final-corrected-source.zip' -CompressionLevel Optimal
+          Compress-Archive -Path 'artifacts\reports\*' -DestinationPath 'artifacts\NewDicomMerger-final-validation-reports.zip' -CompressionLevel Optimal
+          Compress-Archive -Path 'artifacts\publish\NewDicomMerger.exe' -DestinationPath 'artifacts\NewDicomMerger-net10-final-single-exe.zip' -CompressionLevel Optimal
+      - name: Upload final artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewDicomMerger-net10-final-corrected
+          path: |
+            artifacts/NewDicomMerger-final-corrected-source.zip
+            artifacts/NewDicomMerger-final-validation-reports.zip
+            artifacts/NewDicomMerger-net10-final-single-exe.zip
+            artifacts/publish/NewDicomMerger.exe
+            artifacts/reports/**
+          if-no-files-found: error
+          retention-days: 30
