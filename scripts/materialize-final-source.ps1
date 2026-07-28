@@ -1,93 +1,91 @@
 $ErrorActionPreference = 'Stop'
 
 $root = (Resolve-Path '.').Path
-$parts = @(Get-ChildItem '.final-source-overlay/part_*.b64' -File | Sort-Object Name)
-if ($parts.Count -ne 2) { throw "Expected 2 final source overlay parts, found $($parts.Count)." }
+Remove-Item 'bin','obj','artifacts','BugHuntHarness' -Recurse -Force -ErrorAction SilentlyContinue
 
-$base64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s', ''
-$bytes = [Convert]::FromBase64String($base64)
-if ($bytes.Length -lt 10000) { throw "Final source overlay is unexpectedly small: $($bytes.Length) bytes." }
-if ($bytes[0] -ne 0x50 -or $bytes[1] -ne 0x4B) { throw 'Final source overlay has no ZIP signature.' }
+$buildParts = @(Get-ChildItem '.build-overlay/part_*.b64' -File | Sort-Object Name)
+if ($buildParts.Count -ne 8) { throw "Expected 8 build overlay parts, found $($buildParts.Count)." }
+$buildBase64 = (($buildParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s',''
+$buildBytes = [Convert]::FromBase64String($buildBase64)
+if ($buildBytes.Length -lt 100000) { throw "Build overlay is unexpectedly small: $($buildBytes.Length) bytes." }
+if ($buildBytes[0] -ne 0x50 -or $buildBytes[1] -ne 0x4B) { throw 'Build overlay has no ZIP signature.' }
+$buildZip = Join-Path $env:RUNNER_TEMP 'built-source-overlay.zip'
+[IO.File]::WriteAllBytes($buildZip,$buildBytes)
+Expand-Archive -LiteralPath $buildZip -DestinationPath $root -Force
 
-$zipPath = Join-Path $env:RUNNER_TEMP 'final-source-overlay.zip'
-$extractPath = Join-Path $env:RUNNER_TEMP 'final-source-overlay'
-Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
-[IO.File]::WriteAllBytes($zipPath, $bytes)
-Expand-Archive -LiteralPath $zipPath -DestinationPath $extractPath -Force
+$fixParts = @(Get-ChildItem '.bughunt-fixes/part_*.b64' -File | Sort-Object Name)
+if ($fixParts.Count -ne 8) { throw "Expected 8 fix parts, found $($fixParts.Count)." }
+$fixBase64 = (($fixParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s',''
+if ($fixBase64.Length -ne 60876) { throw "Unexpected fix base64 length: $($fixBase64.Length)." }
+$fixBase64Hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::ASCII.GetBytes($fixBase64))).ToLowerInvariant()
+if ($fixBase64Hash -ne 'cf5a7265ae39d15b1eb8cd3930c34cd197e68288efb8bd89c27337074d2f0781') { throw "Fix base64 hash mismatch: $fixBase64Hash" }
+$fixCompressed = [Convert]::FromBase64String($fixBase64)
+$fixCompressedHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($fixCompressed)).ToLowerInvariant()
+if ($fixCompressedHash -ne '4f89bd40fe3ab1f833a08e54346461f6f8126ce96d515532d6572c5c0d232e1d') { throw "Compressed fix hash mismatch: $fixCompressedHash" }
+$fullPatch = Join-Path $env:RUNNER_TEMP 'bughunt-full.patch'
+$input = [IO.MemoryStream]::new($fixCompressed)
+try {
+  $gzip = [IO.Compression.GZipStream]::new($input,[IO.Compression.CompressionMode]::Decompress)
+  try {
+    $output = [IO.File]::Create($fullPatch)
+    try { $gzip.CopyTo($output) } finally { $output.Dispose() }
+  } finally { $gzip.Dispose() }
+} finally { $input.Dispose() }
+$fullPatchHash = (Get-FileHash $fullPatch -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($fullPatchHash -ne '4decaeea1f0c9d43ad3e51fb386aea25b178800a508c9088ce2285f273f88985') { throw "Full patch hash mismatch: $fullPatchHash" }
 
-$productionFiles = @(
-  '.gitattributes',
-  'App.xaml',
-  'App.xaml.cs',
-  'BrainLab.md',
-  'Helpers/NaturalSort.cs',
-  'MainWindow.xaml',
-  'MainWindow.xaml.cs',
-  'Models/DicomModels.cs',
-  'Models/DicomTagEntry.cs',
-  'Models/ReviewItemViewModel.cs',
-  'NewDicomMerger.csproj',
-  'README.md',
-  'Services/BatchReportGenerator.cs',
-  'Services/BatchReportWriter.cs',
-  'Services/DicomDirWriter.cs',
-  'Services/DicomScanner.cs',
-  'Services/DiffusionBValueHelper.cs',
-  'Services/FrameMerger.cs',
-  'Services/FrameSplitter.cs',
-  'Services/LruCache.cs',
-  'Services/NiftiConverter.cs',
-  'Services/SeriesDeidentifier.cs',
-  'Services/SevenZipHelper.cs',
-  'Tools/7za.exe',
-  'Tools/dcm2niix.exe',
-  'app.manifest',
-  'app_icon.ico',
-  'icon.ico',
-  'make_icon.ps1',
-  'project_context_map.md',
-  'project_swarm_matrix.md'
+$textFiles = @(
+  'App.xaml.cs','MainWindow.xaml.cs','NewDicomMerger.csproj',
+  'Services/BatchReportGenerator.cs','Services/BatchReportWriter.cs','Services/DicomDirWriter.cs',
+  'Services/DicomScanner.cs','Services/DiffusionBValueHelper.cs','Services/FrameMerger.cs',
+  'Services/FrameSplitter.cs','Services/NiftiConverter.cs','Services/SeriesDeidentifier.cs','Services/SevenZipHelper.cs'
 )
-
-foreach ($relativePath in $productionFiles) {
-  $source = Join-Path $extractPath $relativePath
-  if (-not (Test-Path $source -PathType Leaf)) { throw "Missing final source file: $relativePath" }
-  $destination = Join-Path $root $relativePath
-  $destinationDirectory = Split-Path $destination -Parent
-  if ($destinationDirectory) { New-Item -ItemType Directory -Force $destinationDirectory | Out-Null }
-  Copy-Item -LiteralPath $source -Destination $destination -Force
+foreach ($file in $textFiles) {
+  if (-not (Test-Path $file -PathType Leaf)) { throw "Missing source file after build overlay reconstruction: $file" }
+  $content = [IO.File]::ReadAllText((Resolve-Path $file)) -replace "`r`n","`n" -replace "`r","`n"
+  [IO.File]::WriteAllText((Resolve-Path $file),$content,[Text.UTF8Encoding]::new($false))
 }
+
+New-Item -ItemType Directory -Force 'BugHuntHarness' | Out-Null
+[IO.File]::WriteAllText((Join-Path $root 'BugHuntHarness/BugHuntHarness.csproj'),'',[Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $root 'BugHuntHarness/Program.cs'),'',[Text.UTF8Encoding]::new($false))
+
+$patchText = [IO.File]::ReadAllText($fullPatch)
+$sections = [regex]::Split($patchText,'(?m)(?=^diff -ruN )') | Where-Object { $_ -and $_ -notmatch '^diff -ruN .*Services/FrameMerger\.cs' }
+$patchWithoutFrame = Join-Path $env:RUNNER_TEMP 'bughunt-without-frame.patch'
+[IO.File]::WriteAllText($patchWithoutFrame,($sections -join ''),[Text.UTF8Encoding]::new($false))
+git apply --check --whitespace=nowarn $patchWithoutFrame
+if ($LASTEXITCODE -ne 0) { throw 'BugHunt patch validation failed.' }
+git apply --whitespace=nowarn $patchWithoutFrame
+if ($LASTEXITCODE -ne 0) { throw 'BugHunt patch application failed.' }
 
 $expectedFrameHash = '6caa2ac2a163d21599b47b99322b70574b6fc3244390b665764a992b6fe2e82e'
-$currentFrameHash = (Get-FileHash -LiteralPath 'Services/FrameMerger.cs' -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($currentFrameHash -ne $expectedFrameHash) {
-  $frameApplied = $false
-  foreach ($directory in @('.bughunt-frame-v2', '.bughunt-frame')) {
-    if (-not (Test-Path $directory -PathType Container)) { continue }
-    $frameParts = @(Get-ChildItem "$directory/part_*.b64" -File | Sort-Object Name)
-    if ($frameParts.Count -eq 0) { continue }
-    $frameBase64 = (($frameParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s', ''
-    try { $compressedFrame = [Convert]::FromBase64String($frameBase64) } catch { continue }
-    $candidatePath = Join-Path $env:RUNNER_TEMP ((Split-Path $directory -Leaf) + '.cs')
+$frameApplied = $false
+foreach ($directory in @('.bughunt-frame-v2','.bughunt-frame')) {
+  if (-not (Test-Path $directory -PathType Container)) { continue }
+  $parts = @(Get-ChildItem "$directory/part_*.b64" -File | Sort-Object Name)
+  if ($parts.Count -eq 0) { continue }
+  $candidateBase64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s',''
+  try { $candidateCompressed = [Convert]::FromBase64String($candidateBase64) } catch { continue }
+  $candidatePath = Join-Path $env:RUNNER_TEMP ((Split-Path $directory -Leaf) + '.cs')
+  try {
+    $candidateInput = [IO.MemoryStream]::new($candidateCompressed)
     try {
-      $input = [IO.MemoryStream]::new($compressedFrame)
+      $candidateGzip = [IO.Compression.GZipStream]::new($candidateInput,[IO.Compression.CompressionMode]::Decompress)
       try {
-        $gzip = [IO.Compression.GZipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
-        try {
-          $output = [IO.File]::Create($candidatePath)
-          try { $gzip.CopyTo($output) } finally { $output.Dispose() }
-        } finally { $gzip.Dispose() }
-      } finally { $input.Dispose() }
-    } catch { continue }
-    $candidateHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($candidateHash -eq $expectedFrameHash) {
-      Copy-Item -LiteralPath $candidatePath -Destination 'Services/FrameMerger.cs' -Force
-      $frameApplied = $true
-      break
-    }
+        $candidateOutput = [IO.File]::Create($candidatePath)
+        try { $candidateGzip.CopyTo($candidateOutput) } finally { $candidateOutput.Dispose() }
+      } finally { $candidateGzip.Dispose() }
+    } finally { $candidateInput.Dispose() }
+  } catch { continue }
+  $candidateHash = (Get-FileHash $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($candidateHash -eq $expectedFrameHash) {
+    Copy-Item $candidatePath 'Services/FrameMerger.cs' -Force
+    $frameApplied = $true
+    break
   }
-  if (-not $frameApplied) { throw "Final FrameMerger payload with expected SHA-256 was not found. Overlay hash: $currentFrameHash" }
 }
+if (-not $frameApplied) { throw 'Final FrameMerger payload with expected SHA-256 was not found.' }
 
 $expectedHashes = [ordered]@{
   'App.xaml.cs' = 'ac0cb274748135530680b379e53038858ffc169cec91dec5581b8f1c8e29bfd7'
@@ -103,44 +101,33 @@ $expectedHashes = [ordered]@{
   'Services/SeriesDeidentifier.cs' = 'f17ee2185b3d4ff25698c58375f6fe58bea2e1a5bd32805511345efae6f7f62a'
   'Services/SevenZipHelper.cs' = 'e9d61998b39cc91e06ad53073ad50f048a6126dd41f3d4f2e083afa0a0087f93'
 }
-
 foreach ($entry in $expectedHashes.GetEnumerator()) {
   $actual = (Get-FileHash -LiteralPath $entry.Key -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($actual -ne $entry.Value) { throw "Hash mismatch for $($entry.Key): $actual" }
 }
 
-$temporaryPaths = @(
-  '.bughunt-fixes',
-  '.bughunt-frame',
-  '.bughunt-frame-v2',
-  '.bughunt-hotfix',
-  '.build-overlay',
-  '.build-overlay-supplement',
-  '.final-source-overlay',
-  '.bughunt-trigger',
-  '.final-corrections-trigger',
-  '.final-pr-trigger',
-  '.final-pr-trigger-2',
-  '.final-pr-trigger-3',
-  '.final-pr-trigger-4',
-  '.net10-pr-trigger',
-  '.net10-single-exe-trigger',
-  '.apply-final-source-trigger',
-  '.apply-final-source-main-trigger',
-  '.github/workflows/net10-bughunt.yml',
-  '.github/workflows/net10-final-corrections.yml',
-  '.github/workflows/net10-final-pr-validation.yml',
-  '.github/workflows/net10-single-exe-build.yml',
-  '.github/workflows/net10-single-exe.yml',
-  '.github/workflows/apply-final-source.yml',
-  '.github/workflows/apply-final-source-main.yml',
-  'scripts/apply-final-corrections.ps1',
-  'scripts/materialize-final-source.ps1'
+$productionFiles = @(
+  '.gitattributes','App.xaml','App.xaml.cs','BrainLab.md','Helpers/NaturalSort.cs','MainWindow.xaml','MainWindow.xaml.cs',
+  'Models/DicomModels.cs','Models/DicomTagEntry.cs','Models/ReviewItemViewModel.cs','NewDicomMerger.csproj','README.md',
+  'Services/BatchReportGenerator.cs','Services/BatchReportWriter.cs','Services/DicomDirWriter.cs','Services/DicomScanner.cs',
+  'Services/DiffusionBValueHelper.cs','Services/FrameMerger.cs','Services/FrameSplitter.cs','Services/LruCache.cs',
+  'Services/NiftiConverter.cs','Services/SeriesDeidentifier.cs','Services/SevenZipHelper.cs','Tools/7za.exe','Tools/dcm2niix.exe',
+  'app.manifest','app_icon.ico','icon.ico','make_icon.ps1','project_context_map.md','project_swarm_matrix.md'
 )
-
-foreach ($path in $temporaryPaths) {
-  Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue
+foreach ($file in $productionFiles) {
+  if (-not (Test-Path $file -PathType Leaf) -or (Get-Item $file).Length -eq 0) { throw "Production file missing or empty: $file" }
 }
+
+Remove-Item 'BugHuntHarness' -Recurse -Force -ErrorAction SilentlyContinue
+$temporaryPaths = @(
+  '.bughunt-fixes','.bughunt-frame','.bughunt-frame-v2','.bughunt-hotfix','.build-overlay','.build-overlay-supplement','.final-source-overlay',
+  '.bughunt-trigger','.final-corrections-trigger','.final-pr-trigger','.final-pr-trigger-2','.final-pr-trigger-3','.final-pr-trigger-4',
+  '.net10-pr-trigger','.net10-single-exe-trigger','.apply-final-source-trigger','.apply-final-source-main-trigger',
+  '.github/workflows/net10-bughunt.yml','.github/workflows/net10-final-corrections.yml','.github/workflows/net10-final-pr-validation.yml',
+  '.github/workflows/net10-single-exe-build.yml','.github/workflows/net10-single-exe.yml','.github/workflows/apply-final-source.yml',
+  '.github/workflows/apply-final-source-main.yml','scripts/apply-final-corrections.ps1','scripts/materialize-final-source.ps1'
+)
+foreach ($path in $temporaryPaths) { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue }
 
 New-Item -ItemType Directory -Force '.github/workflows' | Out-Null
 $mainWorkflow = @'
@@ -150,7 +137,6 @@ on:
   push:
     branches:
       - main
-      - agent/final-corrections-pr-base
   pull_request:
   workflow_dispatch:
 
@@ -189,9 +175,9 @@ jobs:
           path: artifacts/publish/NewDicomMerger.exe
           if-no-files-found: error
 '@
-[IO.File]::WriteAllText((Join-Path $root '.github/workflows/net10-build.yml'), $mainWorkflow, [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $root '.github/workflows/net10-build.yml'),$mainWorkflow,[Text.UTF8Encoding]::new($false))
 
 $remainingPayloads = @(Get-ChildItem -Force | Where-Object { $_.Name -match '^\.(bughunt|build-overlay|final-source)' })
 if ($remainingPayloads.Count -ne 0) { throw "Temporary payloads remain: $($remainingPayloads.Name -join ', ')" }
 
-Write-Host 'Final production source materialized and verified.'
+Write-Host 'Final production source reconstructed, patched, verified, and cleaned.'
