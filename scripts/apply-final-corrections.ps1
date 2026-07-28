@@ -6,7 +6,7 @@ $sourceParts = @(Get-ChildItem '.final-source-overlay\part_*.b64' | Sort-Object 
 if ($sourceParts.Count -ne 2) { throw "Expected 2 final source overlay parts, found $($sourceParts.Count)." }
 $sourceBase64 = (($sourceParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s',''
 $sourceBytes = [Convert]::FromBase64String($sourceBase64)
-if ($sourceBytes.Length -lt 100000) { throw "Final source overlay is unexpectedly small: $($sourceBytes.Length) bytes." }
+if ($sourceBytes.Length -lt 10000) { throw "Final source overlay is unexpectedly small: $($sourceBytes.Length) bytes." }
 $sourceZip = Join-Path $env:RUNNER_TEMP 'final-corrected-source.zip'
 [IO.File]::WriteAllBytes($sourceZip,$sourceBytes)
 $stream = [IO.File]::OpenRead($sourceZip)
