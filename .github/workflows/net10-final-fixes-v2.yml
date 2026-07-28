@@ -1,0 +1,239 @@
+name: .NET 10 Final BugHunt Fixes V2
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: net10-final-fixes-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 1
+
+      - name: Install .NET SDK 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Reconstruct final corrected source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item 'bin', 'obj', 'publish', 'artifacts', 'BugHuntHarness\bin', 'BugHuntHarness\obj' -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force 'artifacts\reports' | Out-Null
+          try {
+            $overlayParts = @(Get-ChildItem '.build-overlay\part_*.b64' | Sort-Object Name)
+            if ($overlayParts.Count -ne 8) { throw "Expected 8 build-overlay parts, found $($overlayParts.Count)." }
+            $overlayBase64 = ($overlayParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+            $overlayBase64 = $overlayBase64 -replace '\s', ''
+            $overlayZip = Join-Path $env:RUNNER_TEMP 'reviewed-final-files.zip'
+            [IO.File]::WriteAllBytes($overlayZip, [Convert]::FromBase64String($overlayBase64))
+            Expand-Archive -LiteralPath $overlayZip -DestinationPath $PWD -Force
+
+            $fixParts = @(Get-ChildItem '.bughunt-fixes\part_*.b64' | Sort-Object Name)
+            if ($fixParts.Count -ne 8) { throw "Expected 8 BugHunt fix parts, found $($fixParts.Count)." }
+            $fixBase64 = ($fixParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+            $fixBase64 = $fixBase64 -replace '\s', ''
+            if ($fixBase64.Length -ne 60876) { throw "Unexpected BugHunt base64 length: $($fixBase64.Length)." }
+            $fixBase64Hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::ASCII.GetBytes($fixBase64))).ToLowerInvariant()
+            if ($fixBase64Hash -ne 'cf5a7265ae39d15b1eb8cd3930c34cd197e68288efb8bd89c27337074d2f0781') { throw "BugHunt base64 hash mismatch: $fixBase64Hash" }
+            $compressedPatch = [Convert]::FromBase64String($fixBase64)
+            $compressedHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($compressedPatch)).ToLowerInvariant()
+            if ($compressedHash -ne '4f89bd40fe3ab1f833a08e54346461f6f8126ce96d515532d6572c5c0d232e1d') { throw "Compressed patch hash mismatch: $compressedHash" }
+            $patchPath = Join-Path $env:RUNNER_TEMP 'bughunt-fixes.patch'
+            $input = [IO.MemoryStream]::new($compressedPatch)
+            try {
+              $gzip = [IO.Compression.GZipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+              try {
+                $output = [IO.File]::Create($patchPath)
+                try { $gzip.CopyTo($output) } finally { $output.Dispose() }
+              } finally { $gzip.Dispose() }
+            } finally { $input.Dispose() }
+            $patchHash = (Get-FileHash $patchPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($patchHash -ne '4decaeea1f0c9d43ad3e51fb386aea25b178800a508c9088ce2285f273f88985') { throw "Patch hash mismatch: $patchHash" }
+
+            $patchText = [IO.File]::ReadAllText($patchPath)
+            $frameStartMarker = "--- a/Services/FrameMerger.cs`n"
+            $frameEndMarker = "--- a/Services/FrameSplitter.cs`n"
+            $frameStart = $patchText.IndexOf($frameStartMarker, [StringComparison]::Ordinal)
+            $frameEnd = $patchText.IndexOf($frameEndMarker, [StringComparison]::Ordinal)
+            if ($frameStart -lt 0 -or $frameEnd -le $frameStart) { throw 'FrameMerger patch section could not be isolated.' }
+            $filteredPatchText = $patchText.Remove($frameStart, $frameEnd - $frameStart)
+            $filteredPatchPath = Join-Path $env:RUNNER_TEMP 'bughunt-fixes-without-frame-merger.patch'
+            [IO.File]::WriteAllText($filteredPatchPath, $filteredPatchText, [Text.UTF8Encoding]::new($false))
+
+            $patchTargets = @(
+              'App.xaml.cs',
+              'MainWindow.xaml.cs',
+              'NewDicomMerger.csproj',
+              'Services\BatchReportGenerator.cs',
+              'Services\BatchReportWriter.cs',
+              'Services\DicomDirWriter.cs',
+              'Services\DicomScanner.cs',
+              'Services\DiffusionBValueHelper.cs',
+              'Services\FrameSplitter.cs',
+              'Services\NiftiConverter.cs',
+              'Services\SeriesDeidentifier.cs',
+              'Services\SevenZipHelper.cs'
+            )
+            $utf8 = [Text.UTF8Encoding]::new($false)
+            foreach ($target in $patchTargets) {
+              $content = [IO.File]::ReadAllText($target)
+              $content = $content.Replace("`r`n", "`n").Replace("`r", "`n")
+              [IO.File]::WriteAllText($target, $content, $utf8)
+            }
+            New-Item -ItemType Directory -Force 'BugHuntHarness' | Out-Null
+            [IO.File]::WriteAllText('BugHuntHarness\BugHuntHarness.csproj', '', $utf8)
+            [IO.File]::WriteAllText('BugHuntHarness\Program.cs', '', $utf8)
+            git apply --check --ignore-space-change --ignore-whitespace --whitespace=nowarn $filteredPatchPath
+            git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn $filteredPatchPath
+
+            $frameParts = @(Get-ChildItem '.bughunt-frame-v2\part_*.b64' | Sort-Object Name)
+            if ($frameParts.Count -ne 2) { throw "Expected 2 rebased FrameMerger payload parts, found $($frameParts.Count)." }
+            $frameBase64 = ($frameParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+            $frameBase64 = $frameBase64 -replace '\s', ''
+            if ($frameBase64.Length -ne 8468) { throw "Unexpected FrameMerger base64 length: $($frameBase64.Length)." }
+            $frameBase64Hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::ASCII.GetBytes($frameBase64))).ToLowerInvariant()
+            if ($frameBase64Hash -ne '83aefcf71ed4b5deaf814b1ad63a9fe06384c92ce445b553f52abbd42ab20b50') { throw "FrameMerger base64 hash mismatch: $frameBase64Hash" }
+            $compressedFrame = [Convert]::FromBase64String($frameBase64)
+            $compressedFrameHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($compressedFrame)).ToLowerInvariant()
+            if ($compressedFrameHash -ne 'fe1e5cfbf4b9288957d14398001d0df50967812d953671a43b7b682bd6511d96') { throw "Compressed FrameMerger hash mismatch: $compressedFrameHash" }
+            $frameInput = [IO.MemoryStream]::new($compressedFrame)
+            try {
+              $frameGzip = [IO.Compression.GZipStream]::new($frameInput, [IO.Compression.CompressionMode]::Decompress)
+              try {
+                $frameOutput = [IO.File]::Create('Services\FrameMerger.cs')
+                try { $frameGzip.CopyTo($frameOutput) } finally { $frameOutput.Dispose() }
+              } finally { $frameGzip.Dispose() }
+            } finally { $frameInput.Dispose() }
+
+            $expectedHashes = [ordered]@{
+              'App.xaml.cs' = 'ac0cb274748135530680b379e53038858ffc169cec91dec5581b8f1c8e29bfd7'
+              'MainWindow.xaml' = 'a8f06f1e5c5392fd8a64ea427cce19694ae12d7a3ed3b3bc46038000babc2e45'
+              'MainWindow.xaml.cs' = '582df82aa3dd92f7367a780000646f8f9a632553383d0de85930025bdff5d620'
+              'NewDicomMerger.csproj' = '439ff1cec418a165846d059dde2ef329a944bd7227d86bbf3060cd2ca7541ee5'
+              'Services\BatchReportGenerator.cs' = '7221cd7cfc95cc61799765f83e0544e995bc5082ebc5bd4fba51d4b364d0c320'
+              'Services\BatchReportWriter.cs' = '4b8f68375f9bcecf09f74ae8975a20130b9a359557dc70c0b95b852a335c77cc'
+              'Services\DicomDirWriter.cs' = '9815194992fed6a9278d42c3586b079c931d2546ede729a79b43a68250003654'
+              'Services\DicomScanner.cs' = '89a84444d67a122a808f82bea4bbc28791550ed66fb26618c89331dd5e89da75'
+              'Services\DiffusionBValueHelper.cs' = '2cb70b7b0b94945406ce2aa22f766842ec4c8d411ab351d05a04121742861828'
+              'Services\FrameMerger.cs' = '61a6273fb96124d60cf79730ec6945e653c6fb05084eed1163214f1e176e390c'
+              'Services\FrameSplitter.cs' = 'dcc2899b5d9fea06a24692910756ee07e5ea3805ff528246f97ea2f8fdcd0590'
+              'Services\NiftiConverter.cs' = 'd44d75c52e132ae86020f941c7fbd76041b6cfc3209b8855c94909848dfd7878'
+              'Services\SeriesDeidentifier.cs' = '00996de75418a75e54c0082a5bafbc1e5ac80b65bc4bd642da5cc4177bffadea'
+              'Services\SevenZipHelper.cs' = 'e9d61998b39cc91e06ad53073ad50f048a6126dd41f3d4f2e083afa0a0087f93'
+              'BugHuntHarness\BugHuntHarness.csproj' = 'e5a5f484a8745fef57f0440114df5597624edb694ce3ddad399641170802cd6f'
+              'BugHuntHarness\Program.cs' = 'ff644d60fdc8d1b270465ecfa6d82d510e3920278a537324736fbfad82090671'
+            }
+            foreach ($entry in $expectedHashes.GetEnumerator()) {
+              if (-not (Test-Path $entry.Key -PathType Leaf)) { throw "Corrected source file missing: $($entry.Key)" }
+              $actual = (Get-FileHash $entry.Key -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $entry.Value) { throw "Corrected source hash mismatch for $($entry.Key): $actual" }
+            }
+            $expectedHashes.GetEnumerator() | ForEach-Object {
+              [pscustomobject]@{ Path = $_.Key; SHA256 = $_.Value }
+            } | Export-Csv 'artifacts\reports\corrected-source-hashes.csv' -NoTypeInformation -Encoding utf8
+          }
+          catch {
+            $_ | Out-String | Set-Content 'artifacts\reports\reconstruction-error.txt' -Encoding utf8
+            throw
+          }
+
+      - name: Restore application and harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet --info | Tee-Object -FilePath 'artifacts\reports\dotnet-info.txt'
+          dotnet restore NewDicomMerger.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore-app.log'
+          dotnet restore BugHuntHarness\BugHuntHarness.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore-harness.log'
+
+      - name: Build application with maximum analyzers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-all -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=false 2>&1 | Tee-Object -FilePath 'artifacts\reports\analyzer-build.log'
+
+      - name: Build and run synthetic regression harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build BugHuntHarness\BugHuntHarness.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-recommended -p:TreatWarningsAsErrors=false 2>&1 | Tee-Object -FilePath 'artifacts\reports\harness-build.log'
+          dotnet run --project BugHuntHarness\BugHuntHarness.csproj -c Release -r win-x64 --no-build --no-restore 2>&1 | Tee-Object -FilePath 'artifacts\reports\regression-harness.log'
+
+      - name: Dependency vulnerability report
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet list NewDicomMerger.csproj package --vulnerable --include-transitive --format json | Set-Content 'artifacts\reports\vulnerable-packages.json' -Encoding utf8
+          dotnet list NewDicomMerger.csproj package --outdated --include-transitive --format json | Set-Content 'artifacts\reports\outdated-packages.json' -Encoding utf8
+
+      - name: Publish and smoke-test self-contained single EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish NewDicomMerger.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -p:ContinuousIntegrationBuild=true -o artifacts\publish 2>&1 | Tee-Object -FilePath 'artifacts\reports\publish.log'
+          $exe = Resolve-Path 'artifacts\publish\NewDicomMerger.exe'
+          $info = Get-Item $exe
+          if ($info.Length -lt 10MB) { throw "Executable is unexpectedly small: $($info.Length) bytes." }
+          $stream = [IO.File]::OpenRead($exe)
+          try { if ($stream.ReadByte() -ne 0x4D -or $stream.ReadByte() -ne 0x5A) { throw 'Executable has no valid Windows PE MZ header.' } }
+          finally { $stream.Dispose() }
+          $unexpected = @(Get-ChildItem 'artifacts\publish' -File | Where-Object Name -ne 'NewDicomMerger.exe')
+          if ($unexpected.Count -gt 0) { throw "Single-file publish contains unexpected files: $($unexpected.Name -join ', ')" }
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 20
+          if ($process.HasExited) { throw "Application exited unexpectedly with code $($process.ExitCode)." }
+          Stop-Process -Id $process.Id -Force
+          $process.WaitForExit()
+          Get-FileHash $exe -Algorithm SHA256 | ConvertTo-Json | Set-Content 'artifacts\reports\published-executable-hash.json' -Encoding utf8
+          $info | Select-Object FullName,Length,CreationTimeUtc,LastWriteTimeUtc | ConvertTo-Json | Set-Content 'artifacts\reports\published-executable.json' -Encoding utf8
+
+      - name: Package final corrected artifacts
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceStage = Join-Path $env:RUNNER_TEMP 'final-corrected-source'
+          $packageStage = Join-Path $env:RUNNER_TEMP 'final-single-exe'
+          New-Item -ItemType Directory -Force $sourceStage, $packageStage | Out-Null
+          Get-ChildItem -Force | Where-Object { $_.Name -notin @('.git','bin','obj','artifacts','.build-overlay','.build-overlay-supplement','.bughunt-fixes','.bughunt-frame','.bughunt-frame-v2','.bughunt-hotfix','.final-source-overlay') } | ForEach-Object {
+            Copy-Item $_.FullName -Destination $sourceStage -Recurse -Force
+          }
+          Get-ChildItem $sourceStage -Recurse -Directory | Where-Object { $_.Name -in @('bin','obj') } | Sort-Object FullName -Descending | Remove-Item -Recurse -Force
+          Compress-Archive -Path "$sourceStage\*" -DestinationPath 'artifacts\NewDicomMerger-final-corrected-source.zip' -CompressionLevel Optimal
+          if (Test-Path 'artifacts\publish\NewDicomMerger.exe') {
+            Copy-Item 'artifacts\publish\NewDicomMerger.exe' "$packageStage\NewDicomMerger.exe"
+            $hash = Get-FileHash "$packageStage\NewDicomMerger.exe" -Algorithm SHA256
+            "$($hash.Hash)  NewDicomMerger.exe" | Set-Content "$packageStage\SHA256SUMS.txt" -Encoding ascii
+            Compress-Archive -Path "$packageStage\*" -DestinationPath 'artifacts\NewDicomMerger-net10-final-corrected-single-exe.zip' -CompressionLevel Optimal
+          }
+          if (Test-Path 'artifacts\reports\*') {
+            Compress-Archive -Path 'artifacts\reports\*' -DestinationPath 'artifacts\NewDicomMerger-final-correction-reports.zip' -CompressionLevel Optimal
+          }
+
+      - name: Upload final corrected artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewDicomMerger-net10-final-corrected
+          path: |
+            artifacts/NewDicomMerger-final-corrected-source.zip
+            artifacts/NewDicomMerger-net10-final-corrected-single-exe.zip
+            artifacts/NewDicomMerger-final-correction-reports.zip
+            artifacts/publish/NewDicomMerger.exe
+            artifacts/reports/**
+          if-no-files-found: warn
+          retention-days: 30
