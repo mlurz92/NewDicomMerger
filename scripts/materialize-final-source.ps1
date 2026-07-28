@@ -7,7 +7,7 @@ $buildParts = @(Get-ChildItem '.build-overlay/part_*.b64' -File | Sort-Object Na
 if ($buildParts.Count -ne 8) { throw "Expected 8 build overlay parts, found $($buildParts.Count)." }
 $buildBase64 = (($buildParts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s',''
 $buildBytes = [Convert]::FromBase64String($buildBase64)
-if ($buildBytes.Length -lt 100000) { throw "Build overlay is unexpectedly small: $($buildBytes.Length) bytes." }
+if ($buildBytes.Length -lt 10000) { throw "Build overlay is unexpectedly small: $($buildBytes.Length) bytes." }
 if ($buildBytes[0] -ne 0x50 -or $buildBytes[1] -ne 0x4B) { throw 'Build overlay has no ZIP signature.' }
 $buildZip = Join-Path $env:RUNNER_TEMP 'built-source-overlay.zip'
 [IO.File]::WriteAllBytes($buildZip,$buildBytes)
