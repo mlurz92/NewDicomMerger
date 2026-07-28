@@ -94,12 +94,15 @@ $temporaryPaths = @(
   '.final-pr-trigger-4',
   '.net10-pr-trigger',
   '.net10-single-exe-trigger',
+  '.apply-final-source-trigger',
+  '.apply-final-source-main-trigger',
   '.github/workflows/net10-bughunt.yml',
   '.github/workflows/net10-final-corrections.yml',
   '.github/workflows/net10-final-pr-validation.yml',
   '.github/workflows/net10-single-exe-build.yml',
   '.github/workflows/net10-single-exe.yml',
   '.github/workflows/apply-final-source.yml',
+  '.github/workflows/apply-final-source-main.yml',
   'scripts/apply-final-corrections.ps1',
   'scripts/materialize-final-source.ps1'
 )
