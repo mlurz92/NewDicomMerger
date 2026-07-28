@@ -1,1 +1,1 @@
-Trigger final materialization after replacing the invalid overlay-size heuristic with structural validation.
+Trigger final materialization with output-file SHA-256 verification replacing stale payload-hash verification.
