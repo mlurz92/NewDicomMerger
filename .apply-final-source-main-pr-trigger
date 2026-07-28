@@ -1,1 +1,1 @@
-Trigger trusted final source materialization on main with the validated FrameMerger fallback enabled.
+Trigger trusted final source materialization on main with diagnostic artifact capture enabled.
