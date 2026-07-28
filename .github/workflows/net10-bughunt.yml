@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/json-audit-zip-fix-net10-build
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
