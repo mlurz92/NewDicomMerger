@@ -1,0 +1,30 @@
+[
+  {
+    "id": "agent-research-01",
+    "role": "Deep_Research_Analyst",
+    "status": "COMPLETED",
+    "workspace": "inherit",
+    "context": "[/Services/]"
+  },
+  {
+    "id": "agent-qa-01",
+    "role": "QA_Security_Auditor",
+    "status": "COMPLETED",
+    "workspace": "inherit",
+    "context": "[/Services/, /MainWindow.xaml.cs]"
+  },
+  {
+    "id": "agent-ui-01",
+    "role": "Frontend_Architect_Elite",
+    "status": "COMPLETED",
+    "workspace": "inherit",
+    "context": "[/MainWindow.xaml, /MainWindow.xaml.cs]"
+  },
+  {
+    "id": "agent-backend-01",
+    "role": "Backend_Logic_Engineer",
+    "status": "COMPLETED",
+    "workspace": "inherit",
+    "context": "[/Services/, /MainWindow.xaml.cs]"
+  }
+]

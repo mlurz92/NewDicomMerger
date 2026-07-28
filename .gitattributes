@@ -1,0 +1,9 @@
+bin/Debug/net8.0-windows/win-x64/PresentationFramework.dll filter=lfs diff=lfs merge=lfs -text
+bin/Debug/net8.0-windows/win-x64/System.Private.CoreLib.dll filter=lfs diff=lfs merge=lfs -text
+bin/Debug/net8.0-windows/win-x64/System.Windows.Forms.dll filter=lfs diff=lfs merge=lfs -text
+bin/Release/net8.0-windows/win-x64/PresentationFramework.dll filter=lfs diff=lfs merge=lfs -text
+bin/Release/net8.0-windows/win-x64/System.Private.CoreLib.dll filter=lfs diff=lfs merge=lfs -text
+bin/Release/net8.0-windows/win-x64/System.Windows.Forms.dll filter=lfs diff=lfs merge=lfs -text
+bin/Release/net8.0-windows/win-x64/publish/NewDicomMerger.exe filter=lfs diff=lfs merge=lfs -text
+obj/Release/net8.0-windows/win-x64/R2R/NewDicomMerger.r2r.dll filter=lfs diff=lfs merge=lfs -text
+publish/NewDicomMerger.exe filter=lfs diff=lfs merge=lfs -text
