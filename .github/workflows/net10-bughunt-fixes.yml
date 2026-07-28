@@ -64,29 +64,34 @@ jobs:
           } finally { $input.Dispose() }
           $patchHash = (Get-FileHash $patchPath -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($patchHash -ne '4decaeea1f0c9d43ad3e51fb386aea25b178800a508c9088ce2285f273f88985') { throw "Patch hash mismatch: $patchHash" }
-          git apply --check --whitespace=nowarn $patchPath
-          git apply --whitespace=nowarn $patchPath
 
-          $hotfixBase64 = (Get-Content '.bughunt-hotfix\patch.b64' -Raw) -replace '\s', ''
-          if ($hotfixBase64.Length -ne 404) { throw "Unexpected hotfix base64 length: $($hotfixBase64.Length)." }
-          $hotfixBase64Hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::ASCII.GetBytes($hotfixBase64))).ToLowerInvariant()
-          if ($hotfixBase64Hash -ne 'b158c7fe3cd4cfa4847c140af01e9801d2021cda867f7e6f8f29ce3f3e6cfc25') { throw "Hotfix base64 hash mismatch: $hotfixBase64Hash" }
-          $compressedHotfix = [Convert]::FromBase64String($hotfixBase64)
-          $compressedHotfixHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($compressedHotfix)).ToLowerInvariant()
-          if ($compressedHotfixHash -ne '07f8f93c1e75a07c312236b0217888d0abc7042184ba43df4cb4122f283df985') { throw "Compressed hotfix hash mismatch: $compressedHotfixHash" }
-          $hotfixPath = Join-Path $env:RUNNER_TEMP 'bughunt-hotfix.patch'
-          $hotfixInput = [IO.MemoryStream]::new($compressedHotfix)
-          try {
-            $hotfixGzip = [IO.Compression.GZipStream]::new($hotfixInput, [IO.Compression.CompressionMode]::Decompress)
-            try {
-              $hotfixOutput = [IO.File]::Create($hotfixPath)
-              try { $hotfixGzip.CopyTo($hotfixOutput) } finally { $hotfixOutput.Dispose() }
-            } finally { $hotfixGzip.Dispose() }
-          } finally { $hotfixInput.Dispose() }
-          $hotfixHash = (Get-FileHash $hotfixPath -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($hotfixHash -ne 'c95292fe5df4c6d75401ce7fa4575e8fe397ba0561a10f35dcd9ad6f330c6fcc') { throw "Hotfix patch hash mismatch: $hotfixHash" }
-          git apply --check --whitespace=nowarn $hotfixPath
-          git apply --whitespace=nowarn $hotfixPath
+          $patchTargets = @(
+            'App.xaml.cs',
+            'MainWindow.xaml.cs',
+            'NewDicomMerger.csproj',
+            'Services\BatchReportGenerator.cs',
+            'Services\BatchReportWriter.cs',
+            'Services\DicomDirWriter.cs',
+            'Services\DicomScanner.cs',
+            'Services\DiffusionBValueHelper.cs',
+            'Services\FrameMerger.cs',
+            'Services\FrameSplitter.cs',
+            'Services\NiftiConverter.cs',
+            'Services\SeriesDeidentifier.cs',
+            'Services\SevenZipHelper.cs'
+          )
+          $utf8 = [Text.UTF8Encoding]::new($false)
+          foreach ($target in $patchTargets) {
+            $content = [IO.File]::ReadAllText($target)
+            $content = $content.Replace("`r`n", "`n").Replace("`r", "`n")
+            [IO.File]::WriteAllText($target, $content, $utf8)
+          }
+          New-Item -ItemType Directory -Force 'BugHuntHarness' | Out-Null
+          [IO.File]::WriteAllText('BugHuntHarness\BugHuntHarness.csproj', '', $utf8)
+          [IO.File]::WriteAllText('BugHuntHarness\Program.cs', '', $utf8)
+
+          git apply --check --ignore-space-change --ignore-whitespace --whitespace=nowarn $patchPath
+          git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn $patchPath
 
           Get-ChildItem -Recurse -File | Where-Object {
             $_.FullName -notmatch '\\.git\\|\\bin\\|\\obj\\|\\artifacts\\|\\.build-overlay|\\.bughunt-fixes|\\.bughunt-hotfix'
