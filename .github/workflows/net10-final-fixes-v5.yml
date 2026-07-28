@@ -1,0 +1,159 @@
+name: .NET 10 Final BugHunt Fixes V5
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: net10-final-fixes-v5-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 1
+
+      - name: Install .NET SDK 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Reconstruct verified final source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item 'bin', 'obj', 'publish', 'artifacts', 'BugHuntHarness\bin', 'BugHuntHarness\obj' -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force 'artifacts\reports' | Out-Null
+          try {
+            $parts = @(Get-ChildItem '.final-source-overlay\part_*.b64' | Sort-Object Name)
+            if ($parts.Count -ne 2) { throw "Expected 2 final-source overlay parts, found $($parts.Count)." }
+            $base64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join '') -replace '\s', ''
+            if ($base64.Length -ne 114360) { throw "Unexpected final overlay base64 length: $($base64.Length)." }
+            $base64Hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::ASCII.GetBytes($base64))).ToLowerInvariant()
+            if ($base64Hash -ne '61f2897627fba02ec85b48a89d5604466711755f69574b760056d1502fd966bd') { throw "Final overlay base64 hash mismatch: $base64Hash" }
+            $zipBytes = [Convert]::FromBase64String($base64)
+            $zipHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($zipBytes)).ToLowerInvariant()
+            if ($zipHash -ne '5a00a5a60e9f50a22a4b2bbd0dde978d1241e214264f97b08e4cf0b76f1a4c96') { throw "Final overlay ZIP hash mismatch: $zipHash" }
+            $zipPath = Join-Path $env:RUNNER_TEMP 'final-corrected-source-overlay.zip'
+            [IO.File]::WriteAllBytes($zipPath, $zipBytes)
+            Expand-Archive -LiteralPath $zipPath -DestinationPath $PWD -Force
+
+            $expectedHashes = [ordered]@{
+              'App.xaml.cs' = 'ac0cb274748135530680b379e53038858ffc169cec91dec5581b8f1c8e29bfd7'
+              'MainWindow.xaml' = 'a8f06f1e5c5392fd8a64ea427cce19694ae12d7a3ed3b3bc46038000babc2e45'
+              'MainWindow.xaml.cs' = '582df82aa3dd92f7367a780000646f8f9a632553383d0de85930025bdff5d620'
+              'NewDicomMerger.csproj' = '439ff1cec418a165846d059dde2ef329a944bd7227d86bbf3060cd2ca7541ee5'
+              'Services\BatchReportGenerator.cs' = '7221cd7cfc95cc61799765f83e0544e995bc5082ebc5bd4fba51d4b364d0c320'
+              'Services\BatchReportWriter.cs' = '4b8f68375f9bcecf09f74ae8975a20130b9a359557dc70c0b95b852a335c77cc'
+              'Services\DicomDirWriter.cs' = '9815194992fed6a9278d42c3586b079c931d2546ede729a79b43a68250003654'
+              'Services\DicomScanner.cs' = '89a84444d67a122a808f82bea4bbc28791550ed66fb26618c89331dd5e89da75'
+              'Services\DiffusionBValueHelper.cs' = '2cb70b7b0b94945406ce2aa22f766842ec4c8d411ab351d05a04121742861828'
+              'Services\FrameMerger.cs' = '61a6273fb96124d60cf79730ec6945e653c6fb05084eed1163214f1e176e390c'
+              'Services\FrameSplitter.cs' = 'dcc2899b5d9fea06a24692910756ee07e5ea3805ff528246f97ea2f8fdcd0590'
+              'Services\NiftiConverter.cs' = 'd44d75c52e132ae86020f941c7fbd76041b6cfc3209b8855c94909848dfd7878'
+              'Services\SeriesDeidentifier.cs' = '00996de75418a75e54c0082a5bafbc1e5ac80b65bc4bd642da5cc4177bffadea'
+              'Services\SevenZipHelper.cs' = 'e9d61998b39cc91e06ad53073ad50f048a6126dd41f3d4f2e083afa0a0087f93'
+              'BugHuntHarness\BugHuntHarness.csproj' = 'e5a5f484a8745fef57f0440114df5597624edb694ce3ddad399641170802cd6f'
+              'BugHuntHarness\Program.cs' = 'ff644d60fdc8d1b270465ecfa6d82d510e3920278a537324736fbfad82090671'
+            }
+            $verified = foreach ($entry in $expectedHashes.GetEnumerator()) {
+              if (-not (Test-Path $entry.Key -PathType Leaf)) { throw "Corrected source file missing: $($entry.Key)" }
+              $actual = (Get-FileHash $entry.Key -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $entry.Value) { throw "Corrected source hash mismatch for $($entry.Key): $actual" }
+              [pscustomobject]@{ Path = $entry.Key; SHA256 = $actual }
+            }
+            $verified | Export-Csv 'artifacts\reports\corrected-source-hashes.csv' -NoTypeInformation -Encoding utf8
+            [xml](Get-Content 'MainWindow.xaml' -Raw) | Out-Null
+            [xml](Get-Content 'NewDicomMerger.csproj' -Raw) | Out-Null
+          }
+          catch {
+            $_ | Out-String | Set-Content 'artifacts\reports\reconstruction-error.txt' -Encoding utf8
+            throw
+          }
+
+      - name: Report SDK and restore
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet --info | Tee-Object -FilePath 'artifacts\reports\dotnet-info.txt'
+          dotnet restore NewDicomMerger.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore-app.log'
+          dotnet restore BugHuntHarness\BugHuntHarness.csproj -r win-x64 2>&1 | Tee-Object -FilePath 'artifacts\reports\restore-harness.log'
+
+      - name: Build application with maximum analyzers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build NewDicomMerger.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-all -p:EnforceCodeStyleInBuild=true -p:TreatWarningsAsErrors=false 2>&1 | Tee-Object -FilePath 'artifacts\reports\analyzer-build.log'
+
+      - name: Build and run synthetic regression harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build BugHuntHarness\BugHuntHarness.csproj -c Release -r win-x64 --no-restore -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-recommended -p:TreatWarningsAsErrors=false 2>&1 | Tee-Object -FilePath 'artifacts\reports\harness-build.log'
+          dotnet run --project BugHuntHarness\BugHuntHarness.csproj -c Release -r win-x64 --no-build --no-restore 2>&1 | Tee-Object -FilePath 'artifacts\reports\regression-harness.log'
+
+      - name: Dependency vulnerability report
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet list NewDicomMerger.csproj package --vulnerable --include-transitive --format json | Set-Content 'artifacts\reports\vulnerable-packages.json' -Encoding utf8
+          dotnet list NewDicomMerger.csproj package --outdated --include-transitive --format json | Set-Content 'artifacts\reports\outdated-packages.json' -Encoding utf8
+
+      - name: Publish and smoke-test self-contained single EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish NewDicomMerger.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false -p:ContinuousIntegrationBuild=true -o artifacts\publish 2>&1 | Tee-Object -FilePath 'artifacts\reports\publish.log'
+          $exe = Resolve-Path 'artifacts\publish\NewDicomMerger.exe'
+          $unexpected = @(Get-ChildItem 'artifacts\publish' -File | Where-Object Name -ne 'NewDicomMerger.exe')
+          if ($unexpected.Count -gt 0) { throw "Single-file publish contains unexpected files: $($unexpected.Name -join ', ')" }
+          $exeInfo = Get-Item $exe
+          if ($exeInfo.Length -lt 10MB) { throw "Executable is unexpectedly small: $($exeInfo.Length) bytes." }
+          $stream = [IO.File]::OpenRead($exe)
+          try { $first = $stream.ReadByte(); $second = $stream.ReadByte() } finally { $stream.Dispose() }
+          if ($first -ne 0x4D -or $second -ne 0x5A) { throw 'Executable has no valid Windows PE MZ header.' }
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 20
+          if ($process.HasExited) { throw "Application exited unexpectedly with code $($process.ExitCode)." }
+          Stop-Process -Id $process.Id -Force
+          $process.WaitForExit()
+          $hash = Get-FileHash $exe -Algorithm SHA256
+          [pscustomobject]@{ FullName = $exe.Path; Length = $exeInfo.Length; SHA256 = $hash.Hash; DotNetSdk = (dotnet --version) } | ConvertTo-Json | Set-Content 'artifacts\reports\published-executable.json' -Encoding utf8
+
+      - name: Package final corrected artifacts
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceStage = Join-Path $env:RUNNER_TEMP 'final-corrected-source'
+          New-Item -ItemType Directory -Force $sourceStage | Out-Null
+          Get-ChildItem -Force | Where-Object { $_.Name -notin @('.git','bin','obj','artifacts','.build-overlay','.build-overlay-supplement','.bughunt-fixes','.bughunt-fixes-v2','.bughunt-frame','.bughunt-frame-v2','.bughunt-hotfix','.final-source-overlay') } | ForEach-Object {
+            Copy-Item $_.FullName -Destination $sourceStage -Recurse -Force
+          }
+          Compress-Archive -Path "$sourceStage\*" -DestinationPath 'artifacts\NewDicomMerger-final-corrected-source.zip' -CompressionLevel Optimal
+          if (Test-Path 'artifacts\reports') { Compress-Archive -Path 'artifacts\reports\*' -DestinationPath 'artifacts\NewDicomMerger-final-correction-reports.zip' -CompressionLevel Optimal }
+          if (Test-Path 'artifacts\publish\NewDicomMerger.exe') { Compress-Archive -Path 'artifacts\publish\NewDicomMerger.exe' -DestinationPath 'artifacts\NewDicomMerger-net10-final-single-exe.zip' -CompressionLevel Optimal }
+
+      - name: Upload final corrected artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NewDicomMerger-net10-final-corrected-v5
+          path: |
+            artifacts/NewDicomMerger-final-corrected-source.zip
+            artifacts/NewDicomMerger-final-correction-reports.zip
+            artifacts/NewDicomMerger-net10-final-single-exe.zip
+            artifacts/publish/NewDicomMerger.exe
+            artifacts/reports/**
+          if-no-files-found: warn
+          retention-days: 30
