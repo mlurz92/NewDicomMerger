@@ -1,0 +1,3 @@
+PatchSHA256=4decaeea1f0c9d43ad3e51fb386aea25b178800a508c9088ce2285f273f88985
+FrameMergerSHA256=61a6273fb96124d60cf79730ec6945e653c6fb05084eed1163214f1e176e390c
+ValidationWorkflow=.github/workflows/net10-final-fixes-v2.yml
